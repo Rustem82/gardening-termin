@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}{{ field_name }} - Tezaurus{% endblock %}
+
+{% block content %}
+<div class="field-page">
+    <div class="field-header">
+        <h1>🏷️ {{ field_name }}</h1>
+        <p>Ushbu sohaga oid barcha terminlar</p>
+        <a href="{{ url_for('index') }}" class="back-link">← Bosh sahifa</a>
+    </div>
+
+    <div class="words-grid">
+        {% for word in words %}
+        <a href="{{ url_for('word_detail', word=word.word) }}" class="word-card">
+            <h3>{{ word.word }}</h3>
+            <p>{{ word.definition[:100] }}{% if word.definition|length > 100 %}...{% endif %}</p>
+            <span class="word-link">Ko'rish →</span>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+
+<style>
+.field-page {
+    background: white;
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+}
+.field-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+.field-header h1 {
+    color: #667eea;
+    font-size: 2.2rem;
+}
+.field-header p {
+    color: #666;
+    margin-bottom: 1rem;
+}
+.back-link {
+    display: inline-block;
+    color: #667eea;
+    text-decoration: none;
+    font-weight: 500;
+}
+.words-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1.5rem;
+}
+.word-card {
+    display: block;
+    padding: 1.2rem;
+    background: #f8f9ff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    text-decoration: none;
+    color: #333;
+    transition: all 0.3s;
+}
+.word-card:hover {
+    transform: translateY(-4px);
+    border-color: #667eea;
+    box-shadow: 0 8px 20px rgba(102,126,234,0.15);
+}
+.word-card h3 {
+    color: #667eea;
+    margin-bottom: 0.5rem;
+}
+.word-card p {
+    color: #666;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+.word-link {
+    display: inline-block;
+    margin-top: 0.5rem;
+    color: #667eea;
+    font-weight: 500;
+}
+</style>
+{% endblock %}

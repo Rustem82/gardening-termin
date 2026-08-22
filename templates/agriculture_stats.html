@@ -1,0 +1,586 @@
+{% extends "base.html" %}
+
+{% block title %}Statistika - Tezaurus{% endblock %}
+
+{% block content %}
+<div class="stats-container">
+    <div class="stats-header">
+        <h1>📊 O'zbek va ingliz tillaridagi bog'dorchilik terminlarining statistikasi</h1>
+        <p>Terminlarning sohalar, turkumlar, tarkib, sinonim, antonim va boshqa ko'rsatkichlar bo'yicha tahlili</p>
+    </div>
+
+    <!-- TABS -->
+    <div class="stats-tabs">
+        <!-- 1-й ряд: Основные категории -->
+        <div class="tabs-row">
+            <a href="{{ url_for('agriculture_stats', tab='general') }}" class="tab {% if active_tab == 'general' %}active{% endif %}">
+                <span class="tab-uz">🌾 Barcha sohalar</span>
+                <span class="tab-en">All fields</span>
+            </a>
+            <a href="{{ url_for('agriculture_stats', tab='agronomiya') }}" class="tab {% if active_tab == 'agronomiya' %}active{% endif %}">
+                <span class="tab-uz">🌱 Agronomiya</span>
+                <span class="tab-en">Agronomy</span>
+            </a>
+            <a href="{{ url_for('agriculture_stats', tab='agrobiologik') }}" class="tab {% if active_tab == 'agrobiologik' %}active{% endif %}">
+                <span class="tab-uz">🔬 Agrobiologik asoslar</span>
+                <span class="tab-en">Agrobiological Foundations</span>
+            </a>
+            <a href="{{ url_for('agriculture_stats', tab='bogdorchilik') }}" class="tab {% if active_tab == 'bogdorchilik' %}active{% endif %}">
+                <span class="tab-uz">🍎 Bog'dorchilik</span>
+                <span class="tab-en">Horticulture</span>
+            </a>
+        </div>
+        <!-- 2-й ряд -->
+        <div class="tabs-row second-row">
+            <a href="{{ url_for('agriculture_stats', tab='kochatchilik') }}" class="tab {% if active_tab == 'kochatchilik' %}active{% endif %}">
+                <span class="tab-uz">🌿 Ko'chatchilik</span>
+                <span class="tab-en">Nursery Science</span>
+            </a>
+            <a href="{{ url_for('agriculture_stats', tab='manzarali') }}" class="tab {% if active_tab == 'manzarali' %}active{% endif %}">
+                <span class="tab-uz">🌸 Manzarali bog'dorchilik</span>
+                <span class="tab-en">Ornamental Horticulture</span>
+            </a>
+            <a href="{{ url_for('agriculture_stats', tab='mevachilik') }}" class="tab {% if active_tab == 'mevachilik' %}active{% endif %}">
+                <span class="tab-uz">🍑 Mevachilik</span>
+                <span class="tab-en">Pomology</span>
+            </a>
+            <a href="{{ url_for('agriculture_stats', tab='seleksiya') }}" class="tab {% if active_tab == 'seleksiya' %}active{% endif %}">
+                <span class="tab-uz">🧬 Seleksiya va genetika</span>
+                <span class="tab-en">Plant Breeding and Genetics</span>
+            </a>
+        </div>
+        <!-- 3-й ряд -->
+        <div class="tabs-row third-row">
+            <a href="{{ url_for('agriculture_stats', tab='himoya') }}" class="tab {% if active_tab == 'himoya' %}active{% endif %}">
+                <span class="tab-uz">🛡️ O'simliklarni himoya qilish</span>
+                <span class="tab-en">Plant Protection</span>
+            </a>
+            <a href="{{ url_for('agriculture_stats', tab='sabzavotchilik') }}" class="tab {% if active_tab == 'sabzavotchilik' %}active{% endif %}">
+                <span class="tab-uz">🥕 Sabzavotchilik</span>
+                <span class="tab-en">Olericulture</span>
+            </a>
+            <a href="{{ url_for('agriculture_stats', tab='uzumchilik') }}" class="tab {% if active_tab == 'uzumchilik' %}active{% endif %}">
+                <span class="tab-uz">🍇 Uzumchilik</span>
+                <span class="tab-en">Viticulture</span>
+            </a>
+            <a href="{{ url_for('agriculture_stats', tab='wordtypes') }}" class="tab {% if active_tab == 'wordtypes' %}active{% endif %}">
+                <span class="tab-uz">📚 So'z turkumlari</span>
+                <span class="tab-en">Parts of Speech</span>
+            </a>
+        </div>
+        <!-- 4-й ряд -->
+        <div class="tabs-row fourth-row">
+            <a href="{{ url_for('agriculture_stats', tab='termtypes') }}" class="tab {% if active_tab == 'termtypes' %}active{% endif %}">
+                <span class="tab-uz">📝 Termin turlari</span>
+                <span class="tab-en">Term Types</span>
+            </a>
+            <a href="{{ url_for('agriculture_stats', tab='synonyms') }}" class="tab {% if active_tab == 'synonyms' %}active{% endif %}">
+                <span class="tab-uz">🔄 Sinonimlar</span>
+                <span class="tab-en">Synonyms</span>
+            </a>
+            <a href="{{ url_for('agriculture_stats', tab='antonyms') }}" class="tab {% if active_tab == 'antonyms' %}active{% endif %}">
+                <span class="tab-uz">⚔️ Antonimlar</span>
+                <span class="tab-en">Antonyms</span>
+            </a>
+            <a href="{{ url_for('agriculture_stats', tab='hyperonyms') }}" class="tab {% if active_tab == 'hyperonyms' %}active{% endif %}">
+                <span class="tab-uz">🔗 Giperonimlar</span>
+                <span class="tab-en">Hyperonyms</span>
+            </a>
+        </div>
+        <!-- 5-й ряд -->
+        <div class="tabs-row fifth-row">
+            <a href="{{ url_for('agriculture_stats', tab='hyponyms') }}" class="tab {% if active_tab == 'hyponyms' %}active{% endif %}">
+                <span class="tab-uz">📎 Giponimlar</span>
+                <span class="tab-en">Hyponyms</span>
+            </a>
+            <a href="{{ url_for('agriculture_stats', tab='holonyms') }}" class="tab {% if active_tab == 'holonyms' %}active{% endif %}">
+                <span class="tab-uz">🧩 Holonimlar</span>
+                <span class="tab-en">Holonyms</span>
+            </a>
+            <a href="{{ url_for('agriculture_stats', tab='meronyms') }}" class="tab {% if active_tab == 'meronyms' %}active{% endif %}">
+                <span class="tab-uz">🔧 Meronimlar</span>
+                <span class="tab-en">Meronyms</span>
+            </a>
+            <a href="{{ url_for('agriculture_stats', tab='homonyms') }}" class="tab {% if active_tab == 'homonyms' %}active{% endif %}">
+                <span class="tab-uz">🔤 Omonimlar</span>
+                <span class="tab-en">Homonyms</span>
+            </a>
+        </div>
+        <!-- 6-й ряд -->
+        <div class="tabs-row sixth-row">
+            <a href="{{ url_for('agriculture_stats', tab='homonym_sources') }}" class="tab {% if active_tab == 'homonym_sources' %}active{% endif %}">
+                <span class="tab-uz">📖 Omonimiya manbalari</span>
+                <span class="tab-en">Homonym Sources</span>
+            </a>
+            <a href="{{ url_for('agriculture_stats', tab='paronyms') }}" class="tab {% if active_tab == 'paronyms' %}active{% endif %}">
+                <span class="tab-uz">🎤 Paronimlar</span>
+                <span class="tab-en">Paronyms</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistik xulosalar -->
+    <div class="stats-summary">
+        <div class="summary-card">
+            <span class="summary-label">📚 Jami terminlar</span>
+            <span class="summary-value">{{ stats.total_words|default(0) }}</span>
+        </div>
+        <div class="summary-card">
+            <span class="summary-label">
+                {% if active_tab == 'general' %}📂 Sohalar soni
+                {% elif active_tab == 'agronomiya' %}🌱 Terminlar soni
+                {% elif active_tab == 'agrobiologik' %}🔬 Terminlar soni
+                {% elif active_tab == 'bogdorchilik' %}🍎 Terminlar soni
+                {% elif active_tab == 'kochatchilik' %}🌿 Terminlar soni
+                {% elif active_tab == 'manzarali' %}🌸 Terminlar soni
+                {% elif active_tab == 'mevachilik' %}🍑 Terminlar soni
+                {% elif active_tab == 'seleksiya' %}🧬 Terminlar soni
+                {% elif active_tab == 'himoya' %}🛡️ Terminlar soni
+                {% elif active_tab == 'sabzavotchilik' %}🥕 Terminlar soni
+                {% elif active_tab == 'uzumchilik' %}🍇 Terminlar soni
+                {% elif active_tab == 'wordtypes' %}📚 Turkumlar soni
+                {% elif active_tab == 'termtypes' %}📝 Turlar soni
+                {% elif active_tab == 'synonyms' %}🔄 Ko'rsatkichlar
+                {% elif active_tab == 'antonyms' %}⚔️ Ko'rsatkichlar
+                {% elif active_tab == 'hyperonyms' %}🔗 Guruhlar soni
+                {% elif active_tab == 'hyponyms' %}📎 Guruhlar soni
+                {% elif active_tab == 'holonyms' %}🧩 Guruhlar soni
+                {% elif active_tab == 'meronyms' %}🔧 Guruhlar soni
+                {% elif active_tab == 'homonyms' %}🔤 Ko'rsatkichlar
+                {% elif active_tab == 'homonym_sources' %}📖 Manbalar soni
+                {% else %}🎤 Ko'rsatkichlar{% endif %}
+            </span>
+            <span class="summary-value">
+                {%- set data_map = {
+                    'general': stats.general|length if stats.general else 0,
+                    'agronomiya': stats.agronomiya|length if stats.agronomiya else 0,
+                    'agrobiologik': stats.agrobiologik|length if stats.agrobiologik else 0,
+                    'bogdorchilik': stats.bogdorchilik|length if stats.bogdorchilik else 0,
+                    'kochatchilik': stats.kochatchilik|length if stats.kochatchilik else 0,
+                    'manzarali': stats.manzarali|length if stats.manzarali else 0,
+                    'mevachilik': stats.mevachilik|length if stats.mevachilik else 0,
+                    'seleksiya': stats.seleksiya|length if stats.seleksiya else 0,
+                    'himoya': stats.himoya|length if stats.himoya else 0,
+                    'sabzavotchilik': stats.sabzavotchilik|length if stats.sabzavotchilik else 0,
+                    'uzumchilik': stats.uzumchilik|length if stats.uzumchilik else 0,
+                    'wordtypes': stats.word_types|length if stats.word_types else 0,
+                    'termtypes': stats.term_types|length if stats.term_types else 0,
+                    'synonyms': stats.synonyms|length if stats.synonyms else 0,
+                    'antonyms': stats.antonyms|length if stats.antonyms else 0,
+                    'hyperonyms': stats.hyperonyms|length if stats.hyperonyms else 0,
+                    'hyponyms': stats.hyponyms|length if stats.hyponyms else 0,
+                    'holonyms': stats.holonyms|length if stats.holonyms else 0,
+                    'meronyms': stats.meronyms|length if stats.meronyms else 0,
+                    'homonyms': stats.homonyms|length if stats.homonyms else 0,
+                    'homonym_sources': stats.homonym_sources|length if stats.homonym_sources else 0,
+                    'paronyms': stats.paronyms|length if stats.paronyms else 0
+                } -%}
+                {{ data_map.get(active_tab, 0) }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Jadval -->
+    <div class="stats-table-wrapper">
+        <table class="stats-table">
+            <thead>
+                <tr>
+                    <th>№</th>
+                    <th>
+                        {% if active_tab == 'general' %}Soha (yo'nalish)
+                        {% elif active_tab == 'agronomiya' %}Agronomiya terminlari
+                        {% elif active_tab == 'agrobiologik' %}Agrobiologik asoslar terminlari
+                        {% elif active_tab == 'bogdorchilik' %}Bog'dorchilik terminlari
+                        {% elif active_tab == 'kochatchilik' %}Ko'chatchilik terminlari
+                        {% elif active_tab == 'manzarali' %}Manzarali bog'dorchilik terminlari
+                        {% elif active_tab == 'mevachilik' %}Mevachilik terminlari
+                        {% elif active_tab == 'seleksiya' %}Seleksiya va genetika terminlari
+                        {% elif active_tab == 'himoya' %}O'simliklarni himoya qilish terminlari
+                        {% elif active_tab == 'sabzavotchilik' %}Sabzavotchilik terminlari
+                        {% elif active_tab == 'uzumchilik' %}Uzumchilik terminlari
+                        {% elif active_tab == 'wordtypes' %}So'z turkumi
+                        {% elif active_tab == 'termtypes' %}Termin turi (so'z tarkibi)
+                        {% elif active_tab == 'hyperonyms' %}Giperonim guruhi
+                        {% elif active_tab == 'hyponyms' %}Giponim guruhi
+                        {% elif active_tab == 'holonyms' %}Holonim guruhi
+                        {% elif active_tab == 'meronyms' %}Meronim guruhi
+                        {% elif active_tab == 'synonyms' %}Ko'rsatkich
+                        {% elif active_tab == 'antonyms' %}Antonim holati
+                        {% elif active_tab == 'homonyms' %}Omonimiya holati
+                        {% elif active_tab == 'homonym_sources' %}Omonimiya manbai
+                        {% else %}Paronimiya holati{% endif %}
+                    </th>
+                    <th>Terminlar soni (ta)</th>
+                    <th>Ulushi, %</th>
+                </tr>
+            </thead>
+            <tbody>
+                {%- set data_items = {
+                    'general': stats.general if stats.general else [],
+                    'agronomiya': stats.agronomiya if stats.agronomiya else [],
+                    'agrobiologik': stats.agrobiologik if stats.agrobiologik else [],
+                    'bogdorchilik': stats.bogdorchilik if stats.bogdorchilik else [],
+                    'kochatchilik': stats.kochatchilik if stats.kochatchilik else [],
+                    'manzarali': stats.manzarali if stats.manzarali else [],
+                    'mevachilik': stats.mevachilik if stats.mevachilik else [],
+                    'seleksiya': stats.seleksiya if stats.seleksiya else [],
+                    'himoya': stats.himoya if stats.himoya else [],
+                    'sabzavotchilik': stats.sabzavotchilik if stats.sabzavotchilik else [],
+                    'uzumchilik': stats.uzumchilik if stats.uzumchilik else [],
+                    'wordtypes': stats.word_types if stats.word_types else [],
+                    'termtypes': stats.term_types if stats.term_types else [],
+                    'synonyms': stats.synonyms if stats.synonyms else [],
+                    'antonyms': stats.antonyms if stats.antonyms else [],
+                    'hyperonyms': stats.hyperonyms if stats.hyperonyms else [],
+                    'hyponyms': stats.hyponyms if stats.hyponyms else [],
+                    'holonyms': stats.holonyms if stats.holonyms else [],
+                    'meronyms': stats.meronyms if stats.meronyms else [],
+                    'homonyms': stats.homonyms if stats.homonyms else [],
+                    'homonym_sources': stats.homonym_sources if stats.homonym_sources else [],
+                    'paronyms': stats.paronyms if stats.paronyms else []
+                } -%}
+
+                {%- set items = data_items.get(active_tab, []) -%}
+                {% if items and items|length > 0 and items[0].name != "Ma'lumotlar mavjud emas" %}
+                    {% for item in items %}
+                    <tr>
+                        <td class="rank">{{ loop.index }}</td>
+                        <td class="industry-name">{{ item.name }}</td>
+                        <td class="count">{{ item.count }}</td>
+                        <td class="percentage">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: {{ item.percentage }}%;"></div>
+                                <span class="percentage-text">{{ item.percentage }}%</span>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="4" class="no-data">📊 Ma'lumotlar mavjud emas</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+            {% if items and items|length > 0 and items[0].name != "Ma'lumotlar mavjud emas" %}
+            <tfoot>
+                <tr class="total-row">
+                    <td colspan="2"><strong>JAMI</strong></td>
+                    <td class="count"><strong>{{ items|sum(attribute='count') }}</strong></td>
+                    <td class="percentage"><strong>100%</strong></td>
+                </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+
+    <!-- Izoh -->
+    <div class="stats-note">
+        <p>📌 <strong>Izoh:</strong> Statistik ma'lumotlar bog'dorchilik terminlari asosida tayyorlangan.</p>
+    </div>
+</div>
+
+<style>
+.stats-container {
+    background: white;
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+}
+
+.stats-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.stats-header h1 {
+    color: #667eea;
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.stats-header p {
+    color: #666;
+    font-size: 1rem;
+}
+
+.stats-tabs {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    border-bottom: 2px solid #e5e7eb;
+    padding-bottom: 1rem;
+}
+
+.tabs-row {
+    display: flex;
+    justify-content: center;
+    gap: 0.3rem;
+    flex-wrap: wrap;
+}
+
+.tabs-row.second-row,
+.tabs-row.third-row,
+.tabs-row.fourth-row,
+.tabs-row.fifth-row,
+.tabs-row.sixth-row {
+    margin-top: 0.3rem;
+}
+
+.tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.4rem 0.8rem;
+    background: transparent;
+    color: #666;
+    text-decoration: none;
+    border-radius: 30px;
+    font-weight: 600;
+    transition: all 0.3s;
+    min-width: 80px;
+    text-align: center;
+}
+
+.tab:hover {
+    background: #f0f4ff;
+    color: #667eea;
+}
+
+.tab.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(102,126,234,0.3);
+}
+
+.tab-uz {
+    font-size: 0.7rem;
+    line-height: 1.2;
+}
+
+.tab-en {
+    font-size: 0.55rem;
+    opacity: 0.7;
+    line-height: 1.2;
+}
+
+.tab.active .tab-en {
+    opacity: 0.9;
+}
+
+.tab:hover .tab-en {
+    opacity: 1;
+}
+
+.stats-summary {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+}
+
+.summary-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1rem 2rem;
+    border-radius: 15px;
+    text-align: center;
+    min-width: 150px;
+}
+
+.summary-label {
+    display: block;
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+.summary-value {
+    display: block;
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.stats-table-wrapper {
+    overflow-x: auto;
+}
+
+.stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.7rem;
+}
+
+.stats-table th {
+    background: #f8f9ff;
+    padding: 0.6rem;
+    text-align: left;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 2px solid #667eea;
+}
+
+.stats-table td {
+    padding: 0.4rem 0.6rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.stats-table tr:hover {
+    background: #f8f9ff;
+}
+
+.rank {
+    font-weight: 600;
+    color: #667eea;
+    width: 35px;
+}
+
+.industry-name {
+    font-weight: 500;
+}
+
+.count {
+    font-weight: 600;
+    text-align: right;
+    width: 75px;
+}
+
+.percentage {
+    width: 140px;
+}
+
+.progress-bar {
+    position: relative;
+    background: #e5e7eb;
+    border-radius: 10px;
+    height: 16px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    border-radius: 10px;
+    transition: width 0.8s ease-in-out;
+}
+
+.percentage-text {
+    position: relative;
+    z-index: 1;
+    display: block;
+    text-align: right;
+    padding-right: 3px;
+    line-height: 16px;
+    font-size: 0.6rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.total-row {
+    background: #f0f4ff;
+    font-weight: 600;
+}
+
+.total-row td {
+    border-top: 2px solid #667eea;
+    border-bottom: none;
+}
+
+.no-data {
+    text-align: center;
+    padding: 2rem;
+    color: #999;
+}
+
+.stats-note {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background: #fef3c7;
+    border-left: 4px solid #f59e0b;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    color: #78350f;
+}
+
+@media (max-width: 768px) {
+    .stats-container {
+        padding: 1rem;
+    }
+    .stats-summary {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch;
+    }
+    .summary-card {
+        min-width: auto;
+        padding: 0.8rem 1rem;
+    }
+    .summary-value {
+        font-size: 1.5rem;
+    }
+    .tabs-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.3rem;
+    }
+    .tab {
+        flex-direction: row;
+        justify-content: center;
+        gap: 0.3rem;
+        padding: 0.4rem 0.8rem;
+        min-width: auto;
+    }
+    .tab-uz {
+        font-size: 0.8rem;
+    }
+    .tab-en {
+        font-size: 0.65rem;
+    }
+    .percentage {
+        width: 110px;
+    }
+    .stats-table td,
+    .stats-table th {
+        padding: 0.25rem;
+        font-size: 0.6rem;
+    }
+    .stats-table th {
+        font-size: 0.55rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-header h1 {
+        font-size: 1.3rem;
+    }
+    .stats-header p {
+        font-size: 0.85rem;
+    }
+    .percentage {
+        width: 80px;
+    }
+    .percentage-text {
+        font-size: 0.5rem;
+        padding-right: 2px;
+    }
+    .count {
+        width: 50px;
+        font-size: 0.6rem;
+    }
+    .stats-table td,
+    .stats-table th {
+        padding: 0.2rem;
+        font-size: 0.5rem;
+    }
+    .tab-uz {
+        font-size: 0.7rem;
+    }
+    .tab-en {
+        font-size: 0.55rem;
+    }
+}
+</style>
+{% endblock %}

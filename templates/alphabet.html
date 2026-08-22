@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block title %}Alifbo bo‘yicha - Tezaurus{% endblock %}
+
+{% block content %}
+<div class="alphabet-page">
+    <div class="alphabet-header">
+        <h1>📚 So'zlar alifbo bo'yicha</h1>
+        {% if selected_letter %}
+            <p>Hozirgi harf: <strong>{{ selected_letter }}</strong></p>
+            <a href="{{ url_for('alphabet_index') }}" class="back-to-alphabet">← Barcha harflar</a>
+        {% else %}
+            <p>So'zni topish uchun harfni tanlang</p>
+        {% endif %}
+    </div>
+
+    <!-- Список букв (как на скриншоте) -->
+    <div class="alphabet-list">
+        {% for letter in alphabet %}
+        <a href="{{ url_for('alphabet_letter', letter=letter) }}" class="alphabet-item {% if selected_letter == letter %}active{% endif %}">
+            <div class="alphabet-row">
+                <span class="folder-icon">📁</span>
+                <span class="letter-text">{{ letter }}</span>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+
+    <!-- Результаты при нажатии на букву -->
+    {% if selected_letter %}
+    <div class="alphabet-results">
+        <h2>"{{ selected_letter }}" harfiga oid so'zlar ({{ words|length }} ta)</h2>
+        
+        {% if words %}
+        <div class="words-grid">
+            {% for word in words %}
+            <a href="{{ url_for('word_detail', word=word.word) }}" class="word-card">
+                <h3>{{ word.word }}</h3>
+                <p>{{ word.definition[:100] }}{% if word.definition|length > 100 %}...{% endif %}</p>
+                <span class="word-link">Ko'rish →</span>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="no-results">
+            <p>Bu harf bilan boshlanuvchi so'zlar hali mavjud emas.</p>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.alphabet-page {
+    background: white;
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+}
+
+.alphabet-header {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.alphabet-header h1 {
+    color: #667eea;
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.back-to-alphabet {
+    display: inline-block;
+    margin-top: 0.5rem;
+    color: #667eea;
+    text-decoration: none;
+    font-weight: 500;
+    transition: 0.3s;
+}
+
+.back-to-alphabet:hover {
+    transform: translateX(-5px);
+}
+
+/* Список букв — в точности как на скриншоте */
+.alphabet-list {
+    background: #ecf5f7; /* Светло-голубой фон */
+    border-radius: 15px;
+    padding: 0.5rem 0;
+    margin-bottom: 2rem;
+}
+
+.alphabet-item {
+    display: block;
+    text-decoration: none;
+    border-bottom: 1px dashed #aabec7; /* Пунктирная линия */
+    transition: background 0.2s;
+}
+
+.alphabet-item:last-child {
+    border-bottom: none;
+}
+
+.alphabet-item:hover, 
+.alphabet-item.active {
+    background: rgba(102, 126, 234, 0.1);
+}
+
+.alphabet-row {
+    display: flex;
+    align-items: center;
+    padding: 0.8rem 1.5rem;
+    gap: 1rem;
+}
+
+.folder-icon {
+    font-size: 1.2rem;
+    color: #2c3e50;
+}
+
+.letter-text {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1a2b3c;
+    letter-spacing: 0.5px;
+}
+
+/* Сетка с результатами */
+.words-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+.word-card {
+    display: block;
+    padding: 1.2rem;
+    background: #f8f9ff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    text-decoration: none;
+    color: #333;
+    transition: all 0.3s;
+}
+
+.word-card:hover {
+    transform: translateY(-4px);
+    border-color: #667eea;
+    box-shadow: 0 8px 20px rgba(102,126,234,0.15);
+}
+
+.word-card h3 {
+    color: #667eea;
+    margin-bottom: 0.4rem;
+    font-size: 1.1rem;
+}
+
+.word-card p {
+    color: #666;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    margin-bottom: 0.8rem;
+}
+
+.word-link {
+    font-size: 0.85rem;
+    color: #667eea;
+    font-weight: 500;
+}
+
+.no-results {
+    text-align: center;
+    padding: 2rem;
+    color: #999;
+    background: #f8f9ff;
+    border-radius: 12px;
+}
+
+@media (max-width: 768px) {
+    .alphabet-page {
+        padding: 1rem;
+    }
+    .alphabet-list {
+        border-radius: 10px;
+    }
+    .alphabet-row {
+        padding: 0.6rem 1rem;
+    }
+    .words-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}

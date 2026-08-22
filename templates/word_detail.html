@@ -1,0 +1,429 @@
+{% extends "base.html" %}
+
+{% block title %}{{ word }} - Tezaurus{% endblock %}
+
+{% block content %}
+<div class="word-detail-modern">
+    <!-- Верхняя панель с навигацией -->
+    <div class="top-panel">
+        <div class="panel-left">
+            <a href="javascript:history.back()" class="back-arrow">← Orqaga qaytish</a>
+        </div>
+        <div class="panel-center">
+            <form action="{{ url_for('search') }}" method="GET" class="top-search">
+                <input type="text" name="q" placeholder="Termin qidirish (o‘zbekcha yoki inglizcha)..." value="">
+                <button type="submit" class="top-search-btn">🔍 Qidirish</button>
+            </form>
+        </div>
+        <div class="panel-right">
+            <span class="nav-links">← Oldingi termin &nbsp; Keyingi termin →</span>
+            <span class="favorite-btn">★ Sevimlilarga qo'shish</span>
+        </div>
+    </div>
+
+    <!-- Заголовок слова -->
+    <h1 class="main-word-title">{{ word }}</h1>
+
+    <!-- Основной двухколоночный макет -->
+    <div class="word-grid">
+
+        <!-- ЛЕВАЯ КОЛОНКА (O'ZBEKCHA) -->
+        <div class="column-card">
+            <div class="column-header">
+                <span class="flag-icon">🇺🇿</span> O'ZBEKCHA
+            </div>
+
+            <div class="row-item">
+                <span class="row-label">Termin</span>
+                <span class="row-value">{{ word }}</span>
+            </div>
+
+            <div class="row-item">
+                <span class="row-label">So‘z turkumi</span>
+                <span class="row-value">{{ data.turkumi|join(', ') if data.turkumi else '-' }}</span>
+            </div>
+
+            <div class="row-item">
+                <span class="row-label">Izoh</span>
+                <span class="row-value">{{ data.определение }}</span>
+            </div>
+
+            <div class="row-item">
+                <span class="row-label">Etimologiya</span>
+                <span class="row-value">{{ data.etimologiyasi[0] if data.etimologiyasi else '-' }}</span>
+            </div>
+
+            <div class="row-item">
+                <span class="row-label">Misol</span>
+                <span class="row-value">{{ data.example_uz if data.example_uz else '-' }}</span>
+            </div>
+
+            <!-- ====== ОБНОВЛЕННАЯ СТРОКА "SOHA" (ведёт на field_page) ====== -->
+            <div class="row-item">
+                <span class="row-label">Soha</span>
+                <span class="row-value soha-container">
+                    {% if data.qollanilishi %}
+                        {% for area in data.qollanilishi %}
+                            {% for part in area.split('→') %}
+                                <a href="{{ url_for('field_page', field_name=part.strip()) }}" class="soha-link">{{ part.strip() }}</a>
+                                {% if not loop.last %} → {% endif %}
+                            {% endfor %}
+                            {% if not loop.last %}<br>{% endif %}
+                        {% endfor %}
+                    {% else %}
+                        -
+                    {% endif %}
+                </span>
+            </div>
+            <!-- ====================================== -->
+
+            <div class="row-item">
+                <span class="row-label">Sinonimlar</span>
+                <span class="row-value">{{ data.синонимы|join(', ') if data.синонимы else '-' }}</span>
+            </div>
+
+            <!-- Если у вас есть поле для научного названия, раскомментируйте:
+            <div class="row-item">
+                <span class="row-label">Ilmiy nomi</span>
+                <span class="row-value">{{ data.scientific_name if data.scientific_name else '-' }}</span>
+            </div> -->
+        </div>
+
+        <!-- ПРАВАЯ КОЛОНКА (ENGLISH) -->
+        <div class="column-card">
+            <div class="column-header">
+                <span class="flag-icon">🇬🇧</span> ENGLISH
+            </div>
+
+            <div class="row-item">
+                <span class="row-label">Term</span>
+                <span class="row-value">{{ data.translation_en if data.translation_en else word }}</span>
+            </div>
+
+            <div class="row-item">
+                <span class="row-label">Part of speech</span>
+                <span class="row-value">{{ data.part_of_speech_en if data.part_of_speech_en else '-' }}</span>
+            </div>
+
+            <div class="row-item">
+                <span class="row-label">Pronunciation</span>
+                <span class="row-value pronunciation-wrapper">
+                    {{ data.pronunciation if data.pronunciation else '-' }}
+                    {% if data.pronunciation %}
+                    <button onclick="speakWord('{{ word }}')" class="speak-icon-btn" title="Tinglash">
+                        🔊
+                    </button>
+                    {% endif %}
+                </span>
+            </div>
+
+            <div class="row-item">
+                <span class="row-label">Definition</span>
+                <span class="row-value">{{ data.definition_en if data.definition_en else '-' }}</span>
+            </div>
+
+            <div class="row-item">
+                <span class="row-label">Etymology</span>
+                <span class="row-value">{{ data.etymology_en if data.etymology_en else '-' }}</span>
+            </div>
+
+            <div class="row-item">
+                <span class="row-label">Example</span>
+                <span class="row-value">{{ data.example_en if data.example_en else '-' }}</span>
+            </div>
+
+            <!-- ====== ОБНОВЛЕННАЯ СТРОКА "FIELD" (ведёт на field_page) ====== -->
+            <div class="row-item">
+                <span class="row-label">Field</span>
+                <span class="row-value soha-container">
+                    {% if data.qollanilishi %}
+                        {% for area in data.qollanilishi %}
+                            {% for part in area.split('→') %}
+                                <a href="{{ url_for('field_page', field_name=part.strip()) }}" class="soha-link">{{ part.strip() }}</a>
+                                {% if not loop.last %} → {% endif %}
+                            {% endfor %}
+                            {% if not loop.last %}<br>{% endif %}
+                        {% endfor %}
+                    {% else %}
+                        -
+                    {% endif %}
+                </span>
+            </div>
+            <!-- ====================================== -->
+
+            <div class="row-item">
+                <span class="row-label">Synonyms</span>
+                <span class="row-value">{{ data.синонимы|join(', ') if data.синонимы else '-' }}</span>
+            </div>
+
+            <!-- Раскомментируйте если добавите научное название на английском
+            <div class="row-item">
+                <span class="row-label">Scientific name</span>
+                <span class="row-value">{{ data.scientific_name_en if data.scientific_name_en else '-' }}</span>
+            </div> -->
+        </div>
+
+        <!-- БЛОК С КАРТИНКОЙ ВНИЗУ (во всю ширину) -->
+        {% if data.image_url %}
+        <div class="image-block">
+            <div class="row-item full-width">
+                <span class="row-label">📁 Rasm (Image)</span>
+            </div>
+            <div class="image-container">
+                <img src="{{ data.image_url }}" alt="{{ word }}" class="detail-image">
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+
+<style>
+/* ====== ВЕРХНЯЯ ПАНЕЛЬ ====== */
+.top-panel {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    background: #f9f9f9;
+    padding: 1rem 1.5rem;
+    border-radius: 12px;
+}
+
+.panel-left .back-arrow {
+    text-decoration: none;
+    color: #333;
+    font-weight: 500;
+    font-size: 0.95rem;
+}
+
+.panel-center {
+    flex: 1;
+    max-width: 600px;
+    min-width: 250px;
+}
+
+.top-search {
+    display: flex;
+    width: 100%;
+}
+
+.top-search input {
+    flex: 1;
+    padding: 0.6rem 1rem;
+    border: 1px solid #ddd;
+    border-radius: 8px 0 0 8px;
+    font-size: 0.9rem;
+}
+
+.top-search-btn {
+    padding: 0.6rem 1.2rem;
+    background: #2e7d32;
+    color: white;
+    border: none;
+    border-radius: 0 8px 8px 0;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.panel-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.favorite-btn {
+    cursor: pointer;
+    color: #ffb300;
+    font-weight: 500;
+}
+
+/* ====== ЗАГОЛОВОК СЛОВА ====== */
+.main-word-title {
+    font-size: 2.8rem;
+    font-weight: 700;
+    color: #111;
+    margin-bottom: 2rem;
+    font-family: var(--font-display);
+}
+
+/* ====== ДВУХКОЛОНОЧНЫЙ МАКЕТ ====== */
+.word-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+@media (max-width: 768px) {
+    .word-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.column-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+}
+
+.column-header {
+    font-weight: 700;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #666;
+    border-bottom: 1px solid #f0f0f0;
+    padding-bottom: 1rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.flag-icon {
+    font-size: 1.2rem;
+}
+
+/* ====== СТРОКИ ТАБЛИЦЫ ====== */
+.row-item {
+    display: flex;
+    flex-direction: column;
+    border-bottom: 1px solid #f0f0f0;
+    padding: 1rem 0;
+}
+
+.row-item:last-child {
+    border-bottom: none;
+}
+
+.row-item.full-width {
+    border-bottom: none;
+    padding-bottom: 0.5rem;
+}
+
+.row-label {
+    font-size: 0.8rem;
+    color: #888;
+    margin-bottom: 0.2rem;
+}
+
+.row-value {
+    font-size: 1rem;
+    color: #1a1a1a;
+    line-height: 1.5;
+}
+
+/* ====== ССЫЛКИ НА ОБЛАСТИ (SOHA) ====== */
+.soha-container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.5rem;
+}
+
+.soha-link {
+    color: #2563eb;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s;
+    padding: 0.1rem 0.2rem;
+    border-radius: 4px;
+}
+
+.soha-link:hover {
+    color: #1d4ed8;
+    background: #eff6ff;
+    text-decoration: underline;
+}
+
+/* ====== ПРОИЗНОШЕНИЕ (КНОПКА) ====== */
+.pronunciation-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.speak-icon-btn {
+    background: #e8f5e9;
+    border: none;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
+    color: #2e7d32;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.speak-icon-btn:hover {
+    background: #2e7d32;
+    color: white;
+}
+
+/* ====== БЛОК С КАРТИНКОЙ ====== */
+.image-block {
+    grid-column: 1 / -1;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+    margin-top: -1rem;
+}
+
+.image-container {
+    margin-top: 0.5rem;
+    display: flex;
+    justify-content: center;
+}
+
+.detail-image {
+    max-width: 100%;
+    width: auto;
+    max-height: 500px;
+    border-radius: 12px;
+    object-fit: cover;
+    border: 1px solid #f0f0f0;
+}
+
+/* ====== НАВИГАЦИЯ (АДАПТИВ) ====== */
+@media (max-width: 600px) {
+    .top-panel {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .panel-right {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    .main-word-title {
+        font-size: 2rem;
+    }
+}
+</style>
+
+<script>
+// Функция для произношения через динамик
+function speakWord(word) {
+    if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+    }
+    const utterance = new SpeechSynthesisUtterance(word);
+    const isEnglish = /^[a-zA-Z\s\-]+$/.test(word);
+    utterance.lang = isEnglish ? 'en-US' : 'uz-UZ';
+    utterance.rate = 0.9;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+    window.speechSynthesis.speak(utterance);
+}
+</script>
+{% endblock %}

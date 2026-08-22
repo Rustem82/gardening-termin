@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Sahifa topilmadi{% endblock %}
+
+{% block content %}
+<div class="error-page">
+    <div class="error-content">
+        <h1>404</h1>
+        <h2>Sahifa topilmadi</h2>
+
+        <p>Kechirasiz, so'ralgan sahifa mavjud emas yoki ko'chirilgan.</p>
+
+        <!-- Блок с подсказками (если есть похожие слова в базе) -->
+        {% if suggestions %}
+            <h3 style="margin-top: 1.5rem;">"{{ word_query }}" bo‘yicha topilgan variantlar:</h3>
+            <div class="error-suggestions">
+                {% for word in suggestions %}
+                    <a href="{{ url_for('word_detail', word=word.word) }}" class="error-suggestion-link">
+                        {{ word.word }}
+                    </a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p style="margin-top: 1.5rem; color: #666;">Boshqa so'zlarni qidirib ko'ring.</p>
+        {% endif %}
+        <!-- Кнопка возврата на главную -->
+        <a href="{{ url_for('index') }}" class="error-btn" style="margin-top: 1rem; display: inline-block;">Bosh sahifaga qaytish</a>
+    </div>
+</div>
+
+<style>
+.error-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: center;
+    margin: 1rem 0 2rem 0;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+.error-suggestion-link {
+    padding: 0.6rem 1.2rem;
+    background: #667eea;
+    color: white;
+    text-decoration: none;
+    border-radius: 20px;
+    transition: all 0.3s;
+    font-weight: 500;
+}
+.error-suggestion-link:hover {
+    background: #5a67d8;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3);
+}
+</style>
+{% endblock %}

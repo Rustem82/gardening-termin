@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Sohalar - Tezaurus{% endblock %}
+
+{% block content %}
+<div class="fields-page">
+    <div class="fields-header">
+        <h1>Sohalar bo‘yicha navigatsiya</h1>
+        <p>Terminlarni qidirish uchun sohani tanlang</p>
+    </div>
+
+    <div class="fields-grid">
+        {% for field in fields %}
+        <a href="{{ url_for('field_page', field_name=field.name) }}" class="field-card">
+            <div class="field-icon"></div>
+            <div class="field-name">{{ field.name }}</div>
+            <div class="field-en">{{ field.en }}</div>
+            <span class="field-arrow">→</span>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+
+<style>
+.fields-page {
+    background: white;
+    border-radius: 20px;
+    padding: 2.5rem;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.fields-header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+}
+
+.fields-header h1 {
+    color: #667eea;
+    font-size: 2.2rem;
+    margin-bottom: 0.5rem;
+    font-family: var(--font-display);
+}
+
+.fields-header p {
+    color: #666;
+}
+
+.fields-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1.5rem;
+}
+
+.field-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 1.8rem 1rem;
+    background: #f8f9ff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.field-card:hover {
+    transform: translateY(-6px);
+    border-color: #667eea;
+    box-shadow: 0 10px 30px rgba(102,126,234,0.15);
+}
+
+.field-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.8rem;
+}
+
+.field-name {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin-bottom: 0.3rem;
+}
+
+.field-en {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 0.8rem;
+}
+
+.field-arrow {
+    font-size: 1.2rem;
+    color: #667eea;
+    opacity: 0;
+    transform: translateX(-10px);
+    transition: all 0.3s;
+}
+
+.field-card:hover .field-arrow {
+    opacity: 1;
+    transform: translateX(0);
+}
+</style>
+{% endblock %}
