@@ -1,0 +1,9 @@
+# .vercelignore
+__pycache__/
+*.pyc
+*.db
+*.sqlite
+static/uploads/
+fix_*.py
+check_*.py
+debug_*.py

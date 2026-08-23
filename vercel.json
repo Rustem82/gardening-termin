@@ -2,23 +2,19 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/index.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "225mb"
-      }
+      "src": "vercel_app.py",
+      "use": "@vercel/python"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "api/index.py"
+      "dest": "vercel_app.py"
     }
   ],
   "functions": {
-    "api/index.py": {
-      "maxDuration": 10,
-      "memory": 1024
+    "vercel_app.py": {
+      "maxDuration": 10
     }
   }
 }
