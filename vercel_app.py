@@ -302,7 +302,34 @@ def search():
 @app.route('/word/<word>')
 def word_detail(word):
     try:
-        db_word = Word.query.filter(Word.word.ilike(word)).first()
+        from urllib.parse import unquote
+        import unicodedata
+
+        # 1. Декодируем URL и нормализуем
+        word_clean = unquote(word)
+        word_clean = unicodedata.normalize('NFC', word_clean)
+        word_clean = ' '.join(word_clean.split())
+
+        # 2. Ищем слово
+        db_word = Word.query.filter(Word.word.ilike(word_clean)).first()
+
+        # 3. Если не нашли, пробуем варианты с разными апострофами
+        if not db_word:
+            variants = []
+            for ch in ['‘', '’', "'", '`']:
+                variants.append(word_clean.replace('‘', ch).replace('’', ch))
+            for variant in variants:
+                db_word = Word.query.filter(Word.word.ilike(variant)).first()
+                if db_word:
+                    break
+
+        # 4. Если не нашли, пробуем поиск по части слова
+        if not db_word:
+            first_part = word_clean.split()[0] if ' ' in word_clean else word_clean
+            if len(first_part) > 3:
+                db_word = Word.query.filter(Word.word.ilike(f'{first_part}%')).first()
+
+        # 5. Если нашли - показываем
         if db_word:
             data = {
                 'определение': db_word.definition,
@@ -315,9 +342,20 @@ def word_detail(word):
                 return render_template('word_detail.html', word=db_word.word, data=data)
             except:
                 return jsonify({'word': db_word.word, 'data': data})
+
+        # 6. Если не нашли - предлагаем похожие
+        similar = Word.query.filter(Word.word.ilike(f'%{word_clean[:5]}%')).limit(5).all()
+        if similar:
+            return jsonify({
+                'error': 'Word not found',
+                'similar': [w.word for w in similar]
+            }), 404
+
+        return jsonify({'error': 'Word not found'}), 404
+
     except Exception as e:
         print(f"Error: {e}")
-    return jsonify({'error': 'Word not found'}), 404
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/stats')
