@@ -305,15 +305,12 @@ def word_detail(word):
         from urllib.parse import unquote
         import unicodedata
 
-        # 1. Декодируем URL и нормализуем
         word_clean = unquote(word)
         word_clean = unicodedata.normalize('NFC', word_clean)
         word_clean = ' '.join(word_clean.split())
 
-        # 2. Ищем слово
         db_word = Word.query.filter(Word.word.ilike(word_clean)).first()
 
-        # 3. Если не нашли, пробуем варианты с разными апострофами
         if not db_word:
             variants = []
             for ch in ['‘', '’', "'", '`']:
@@ -323,27 +320,34 @@ def word_detail(word):
                 if db_word:
                     break
 
-        # 4. Если не нашли, пробуем поиск по части слова
         if not db_word:
             first_part = word_clean.split()[0] if ' ' in word_clean else word_clean
             if len(first_part) > 3:
                 db_word = Word.query.filter(Word.word.ilike(f'{first_part}%')).first()
 
-        # 5. Если нашли - показываем
         if db_word:
             data = {
                 'определение': db_word.definition,
                 'translation_en': db_word.translation_en,
                 'image_url': db_word.image_url,
                 'turkumi': [cat.category for cat in db_word.categories],
-                'синонимы': [syn.related_word for syn in db_word.synonyms]
+                'синонимы': [syn.related_word for syn in db_word.synonyms],
+                'антонимы': [ant.related_word for ant in db_word.antonyms],
+                'гиперонимы': [hyp.related_word for hyp in db_word.hyperonyms],
+                'гипонимы': [hypo.related_word for hypo in db_word.hyponyms],
+                'xolonim': [hol.related_word for hol in db_word.holonyms],
+                'meronim': [mer.related_word for mer in db_word.meronyms],
+                'omonim': [hom.related_word for hom in db_word.homonyms],
+                'paronim': [par.related_word for par in db_word.paronyms],
+                'qollanilishi': [area.area for area in db_word.usage_areas],
+                'etimologiyasi': [db_word.etymology] if db_word.etymology else []
             }
             try:
                 return render_template('word_detail.html', word=db_word.word, data=data)
-            except:
+            except Exception as e:
+                print(f"Template error: {e}")
                 return jsonify({'word': db_word.word, 'data': data})
 
-        # 6. Если не нашли - предлагаем похожие
         similar = Word.query.filter(Word.word.ilike(f'%{word_clean[:5]}%')).limit(5).all()
         if similar:
             return jsonify({
@@ -355,8 +359,9 @@ def word_detail(word):
 
     except Exception as e:
         print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
-
 
 @app.route('/api/stats')
 def stats():
