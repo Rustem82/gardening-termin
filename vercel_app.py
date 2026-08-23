@@ -225,7 +225,31 @@ def init_db():
 def index():
     try:
         words_count = Word.query.count()
-        return render_template('index.html', words_count=words_count)
+
+        # Алфавит для отображения
+        alphabet = ['A', 'B', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+                    'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'X', 'Y', 'Z',
+                    "O'", "G'", 'SH', 'CH', 'NG']
+
+        # Получаем букву из URL (?letter=A)
+        letter = request.args.get('letter', '').upper()
+        words = []
+        selected_letter = None
+
+        # Если выбрана буква - ищем слова
+        if letter and letter in alphabet:
+            selected_letter = letter
+            words = Word.query.filter(Word.word.startswith(letter)).limit(50).all()
+
+        # Популярные слова (первые 5)
+        popular_words = [w.word for w in Word.query.limit(5).all()]
+
+        return render_template('index.html',
+                               words_count=words_count,
+                               alphabet=alphabet,
+                               popular_words=popular_words,
+                               selected_letter=selected_letter,
+                               words=words)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -367,19 +391,26 @@ def about():
 @app.route('/stats/agriculture')
 def agriculture_stats():
     try:
-        # Простая статистика
         total_words = Word.query.count()
         total_categories = db.session.query(WordCategory.category).distinct().count()
-        total_synonyms = WordSynonym.query.count()
 
-        return jsonify({
-            'total_words': total_words,
-            'total_categories': total_categories,
-            'total_synonyms': total_synonyms,
-            'message': 'Страница статистики в разработке'
-        })
+        # Статистика по категориям
+        category_stats = []
+        cats = db.session.query(WordCategory.category).distinct().all()
+        for cat in cats:
+            count = WordCategory.query.filter_by(category=cat[0]).count()
+            category_stats.append({
+                'name': cat[0],
+                'count': count,
+                'percentage': round(count / total_words * 100, 1) if total_words > 0 else 0
+            })
+
+        return render_template('agriculture_stats.html',
+                               stats={'total_words': total_words, 'category_stats': category_stats},
+                               active_tab='general')
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 
 # ========== АДМИН-ПАНЕЛЬ ==========
 
