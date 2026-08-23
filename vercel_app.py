@@ -1,4 +1,4 @@
-# vercel_app.py - полная исправленная версия
+# vercel_app.py - полная версия с HTML шаблонами
 import sys
 import os
 
@@ -29,7 +29,6 @@ DB_PATH = '/tmp/thesaurus_data.db'
 # Если БД нет в /tmp, скачиваем из Storage
 if not os.path.exists(DB_PATH):
     try:
-        # URL вашей БД из Storage
         BLOB_URL = "https://store_W6SAmavz4a8tGG7Q.blob.vercel-storage.com/thesaurus_data.db"
         print("📥 Скачивание БД из Storage...")
         response = requests.get(BLOB_URL, timeout=30)
@@ -39,7 +38,6 @@ if not os.path.exists(DB_PATH):
             print("✅ БД загружена из Storage")
         else:
             print(f"❌ Не удалось загрузить БД: {response.status_code}")
-            # Если не удалось скачать, используем локальную БД (если есть)
             local_db = os.path.join(os.path.dirname(__file__), 'thesaurus_data.db')
             if os.path.exists(local_db):
                 import shutil
@@ -47,7 +45,6 @@ if not os.path.exists(DB_PATH):
                 print("✅ Использована локальная БД")
     except Exception as e:
         print(f"⚠️ Ошибка загрузки БД: {e}")
-        # Если не удалось скачать, используем локальную БД (если есть)
         local_db = os.path.join(os.path.dirname(__file__), 'thesaurus_data.db')
         if os.path.exists(local_db):
             import shutil
@@ -146,11 +143,9 @@ def init_db():
     with app.app_context():
         db.create_all()
 
-        # Проверяем, есть ли данные
         if Word.query.count() == 0:
             print("📁 Инициализация базы данных...")
 
-            # Создаем админа
             if not User.query.filter_by(username='admin').first():
                 admin = User(
                     username='admin',
@@ -161,7 +156,6 @@ def init_db():
                 db.session.commit()
                 print("✅ Админ создан")
 
-            # Импортируем данные из JSON
             json_path = os.path.join(os.path.dirname(__file__), 'yangi.json')
             if os.path.exists(json_path):
                 try:
@@ -214,12 +208,7 @@ def init_db():
 def index():
     try:
         words_count = Word.query.count()
-        return jsonify({
-            'status': 'ok',
-            'message': 'Сервер работает на Vercel!',
-            'words_count': words_count,
-            'version': '1.0.0'
-        })
+        return render_template('index.html', words_count=words_count)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -252,11 +241,9 @@ def word_detail(word):
                 'turkumi': [cat.category for cat in db_word.categories],
                 'синонимы': [syn.related_word for syn in db_word.synonyms]
             }
-            # Проверяем, существует ли шаблон
             try:
                 return render_template('word_detail.html', word=db_word.word, data=data)
             except:
-                # Если шаблона нет, возвращаем JSON
                 return jsonify({'word': db_word.word, 'data': data})
     except Exception as e:
         print(f"Error: {e}")
@@ -271,6 +258,30 @@ def stats():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# ========== АДМИН-ПАНЕЛЬ ==========
+@app.route('/admin/login')
+def admin_login():
+    return '''
+    <!DOCTYPE html>
+    <html>
+    <head><title>Админ-панель</title></head>
+    <body style="font-family: Arial; display: flex; justify-content: center; padding-top: 50px;">
+        <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.1); width: 300px;">
+            <h2>🔐 Админ-панель</h2>
+            <form method="POST">
+                <input type="text" name="username" placeholder="Логин" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px;"><br>
+                <input type="password" name="password" placeholder="Пароль" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px;"><br>
+                <button type="submit" style="width: 100%; padding: 10px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">Войти</button>
+            </form>
+        </div>
+    </body>
+    </html>
+    '''
+
+@app.route('/admin/dashboard')
+def admin_dashboard():
+    return jsonify({'status': 'ok', 'words_count': Word.query.count()})
 
 # ========== ИНИЦИАЛИЗАЦИЯ ПРИ ЗАПУСКЕ ==========
 with app.app_context():
