@@ -819,5 +819,41 @@ def numberformat_filter(value):
         return value
 
 
+# app.py - добавьте в конец файла, перед if __name__ == '__main__'
+
+# Инициализация базы данных при первом запуске
+def initialize_database():
+    """Инициализирует базу данных при первом запуске"""
+    import os
+    db_path = 'thesaurus_data.db'
+
+    # Проверяем, существует ли БД
+    if not os.path.exists(db_path):
+        print("📁 Первый запуск: создание базы данных...")
+        with app.app_context():
+            db.create_all()
+
+            # Создаем админа
+            from werkzeug.security import generate_password_hash
+            from models import User
+
+            admin = User.query.filter_by(username='admin').first()
+            if not admin:
+                admin = User(
+                    username='admin',
+                    password_hash=generate_password_hash('admin123'),
+                    is_admin=True
+                )
+                db.session.add(admin)
+                db.session.commit()
+                print("✅ Админ создан")
+
+            print("✅ База данных создана")
+
+
+# Вызываем инициализацию при загрузке приложения
+with app.app_context():
+    initialize_database()
+
 if __name__ == '__main__':
     app.run(debug=True)
