@@ -1,7 +1,9 @@
+# requirements.txt - полная версия
 Flask==2.3.3
 Flask-SQLAlchemy==3.0.5
 Flask-Login==0.6.2
-psycopg2-binary==2.9.12
 Werkzeug==2.3.7
 SQLAlchemy==2.0.39
-vercel-blob
+requests==2.31.0
+python-dotenv==1.0.0
+vercel-blob==0.2.0
