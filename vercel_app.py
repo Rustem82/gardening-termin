@@ -1,17 +1,16 @@
-# vercel_app.py - полная версия с HTML шаблонами и поиском
+# vercel_app.py - полная рабочая версия
 import sys
 import os
 
 # Добавляем текущую папку в путь
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 import json
-import sqlite3
 import re
 import requests
 
@@ -60,7 +59,7 @@ db = SQLAlchemy(app)
 # Login Manager
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'login'
+login_manager.login_view = 'admin_login'
 
 
 # ========== МОДЕЛИ ==========
@@ -220,7 +219,8 @@ def init_db():
             print("✅ Инициализация завершена")
 
 
-# ========== РОУТЫ ==========
+# ========== ОСНОВНЫЕ РОУТЫ ==========
+
 @app.route('/')
 def index():
     try:
@@ -247,6 +247,32 @@ def debug():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/search')
+def search():
+    query = request.args.get('q', '').strip()
+    results = []
+
+    if query:
+        try:
+            words = Word.query.filter(
+                Word.word.ilike(f'%{query.lower()}%')
+            ).limit(20).all()
+
+            for word in words:
+                results.append({
+                    'word': word.word,
+                    'definition': word.definition,
+                    'image_url': word.image_url
+                })
+        except Exception as e:
+            print(f"Search error: {e}")
+
+    try:
+        return render_template('search.html', query=query, results=results)
+    except:
+        return jsonify({'query': query, 'results': results})
 
 
 @app.route('/word/<word>')
@@ -281,35 +307,52 @@ def stats():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/search')
-def search():
-    query = request.args.get('q', '').strip()
-    results = []
+# ========== СТРАНИЦА КАТЕГОРИЙ (ИСПРАВЛЕНА) ==========
 
-    if query:
-        try:
-            words = Word.query.filter(
-                Word.word.ilike(f'%{query.lower()}%')
-            ).limit(20).all()
-
-            for word in words:
-                results.append({
-                    'word': word.word,
-                    'definition': word.definition,
-                    'image_url': word.image_url
-                })
-        except Exception as e:
-            print(f"Search error: {e}")
-
+@app.route('/categories')
+def categories():
     try:
-        return render_template('search.html', query=query, results=results)
-    except:
-        return jsonify({'query': query, 'results': results})
+        # Получаем все уникальные категории
+        cats = db.session.query(WordCategory.category).distinct().all()
+        categories = [cat[0] for cat in cats if cat[0]]
+        return render_template('categories.html', categories=categories)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
-# ========== АДМИН-ПАНЕЛЬ ==========
-@app.route('/admin/login')
+# ========== АДМИН-ПАНЕЛЬ (ИСПРАВЛЕНА) ==========
+
+@app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+
+        user = User.query.filter_by(username=username).first()
+        if user and check_password_hash(user.password_hash, password):
+            login_user(user)
+            return redirect(url_for('admin_dashboard'))
+        else:
+            # Возвращаем страницу с ошибкой
+            return '''
+            <!DOCTYPE html>
+            <html>
+            <head><title>Админ-панель</title></head>
+            <body style="font-family: Arial; display: flex; justify-content: center; padding-top: 50px;">
+                <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.1); width: 300px;">
+                    <h2>🔐 Админ-панель</h2>
+                    <p style="color: red;">Неверный логин или пароль</p>
+                    <form method="POST">
+                        <input type="text" name="username" placeholder="Логин" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px;"><br>
+                        <input type="password" name="password" placeholder="Пароль" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px;"><br>
+                        <button type="submit" style="width: 100%; padding: 10px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">Войти</button>
+                    </form>
+                </div>
+            </body>
+            </html>
+            '''
+
+    # GET запрос - показываем форму входа
     return '''
     <!DOCTYPE html>
     <html>
@@ -329,8 +372,20 @@ def admin_login():
 
 
 @app.route('/admin/dashboard')
+@login_required
 def admin_dashboard():
-    return jsonify({'status': 'ok', 'words_count': Word.query.count()})
+    return jsonify({
+        'status': 'ok',
+        'message': 'Добро пожаловать в админ-панель!',
+        'words_count': Word.query.count()
+    })
+
+
+@app.route('/admin/logout')
+@login_required
+def admin_logout():
+    logout_user()
+    return redirect(url_for('admin_login'))
 
 
 # ========== ИНИЦИАЛИЗАЦИЯ ПРИ ЗАПУСКЕ ==========
