@@ -362,7 +362,6 @@ def word_detail(word):
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
-
 @app.route('/api/stats')
 def stats():
     try:
