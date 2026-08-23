@@ -1,4 +1,4 @@
-# vercel_app.py - полная версия с HTML шаблонами
+# vercel_app.py - полная версия с HTML шаблонами и поиском
 import sys
 import os
 
@@ -41,6 +41,7 @@ if not os.path.exists(DB_PATH):
             local_db = os.path.join(os.path.dirname(__file__), 'thesaurus_data.db')
             if os.path.exists(local_db):
                 import shutil
+
                 shutil.copy2(local_db, DB_PATH)
                 print("✅ Использована локальная БД")
     except Exception as e:
@@ -48,6 +49,7 @@ if not os.path.exists(DB_PATH):
         local_db = os.path.join(os.path.dirname(__file__), 'thesaurus_data.db')
         if os.path.exists(local_db):
             import shutil
+
             shutil.copy2(local_db, DB_PATH)
             print("✅ Использована локальная БД")
 
@@ -60,6 +62,7 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
+
 # ========== МОДЕЛИ ==========
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -67,6 +70,7 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(200), nullable=False)
     is_admin = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 
 class Word(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -83,59 +87,71 @@ class Word(db.Model):
     image_url = db.Column(db.String(500))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+
 class WordCategory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     word_id = db.Column(db.Integer, db.ForeignKey('word.id'), nullable=False)
     category = db.Column(db.String(50), nullable=False, index=True)
+
 
 class WordSynonym(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     word_id = db.Column(db.Integer, db.ForeignKey('word.id'), nullable=False)
     related_word = db.Column(db.String(100), nullable=False, index=True)
 
+
 class WordAntonym(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     word_id = db.Column(db.Integer, db.ForeignKey('word.id'), nullable=False)
     related_word = db.Column(db.String(100), nullable=False, index=True)
+
 
 class WordHyperonym(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     word_id = db.Column(db.Integer, db.ForeignKey('word.id'), nullable=False)
     related_word = db.Column(db.String(100), nullable=False, index=True)
 
+
 class WordHyponym(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     word_id = db.Column(db.Integer, db.ForeignKey('word.id'), nullable=False)
     related_word = db.Column(db.String(100), nullable=False, index=True)
+
 
 class WordHolonym(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     word_id = db.Column(db.Integer, db.ForeignKey('word.id'), nullable=False)
     related_word = db.Column(db.String(100), nullable=False, index=True)
 
+
 class WordMeronym(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     word_id = db.Column(db.Integer, db.ForeignKey('word.id'), nullable=False)
     related_word = db.Column(db.String(100), nullable=False, index=True)
+
 
 class WordHomonym(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     word_id = db.Column(db.Integer, db.ForeignKey('word.id'), nullable=False)
     related_word = db.Column(db.String(100), nullable=False, index=True)
 
+
 class WordParonym(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     word_id = db.Column(db.Integer, db.ForeignKey('word.id'), nullable=False)
     related_word = db.Column(db.String(100), nullable=False, index=True)
+
 
 class WordUsageArea(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     word_id = db.Column(db.Integer, db.ForeignKey('word.id'), nullable=False)
     area = db.Column(db.String(100), nullable=False, index=True)
 
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
 
 # ========== ИНИЦИАЛИЗАЦИЯ БД ==========
 def init_db():
@@ -203,6 +219,7 @@ def init_db():
 
             print("✅ Инициализация завершена")
 
+
 # ========== РОУТЫ ==========
 @app.route('/')
 def index():
@@ -212,9 +229,11 @@ def index():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
 @app.route('/health')
 def health():
     return jsonify({'status': 'healthy'})
+
 
 @app.route('/debug')
 def debug():
@@ -228,6 +247,7 @@ def debug():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 
 @app.route('/word/<word>')
 def word_detail(word):
@@ -249,6 +269,7 @@ def word_detail(word):
         print(f"Error: {e}")
     return jsonify({'error': 'Word not found'}), 404
 
+
 @app.route('/api/stats')
 def stats():
     try:
@@ -258,6 +279,33 @@ def stats():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/search')
+def search():
+    query = request.args.get('q', '').strip()
+    results = []
+
+    if query:
+        try:
+            words = Word.query.filter(
+                Word.word.ilike(f'%{query.lower()}%')
+            ).limit(20).all()
+
+            for word in words:
+                results.append({
+                    'word': word.word,
+                    'definition': word.definition,
+                    'image_url': word.image_url
+                })
+        except Exception as e:
+            print(f"Search error: {e}")
+
+    try:
+        return render_template('search.html', query=query, results=results)
+    except:
+        return jsonify({'query': query, 'results': results})
+
 
 # ========== АДМИН-ПАНЕЛЬ ==========
 @app.route('/admin/login')
@@ -279,9 +327,11 @@ def admin_login():
     </html>
     '''
 
+
 @app.route('/admin/dashboard')
 def admin_dashboard():
     return jsonify({'status': 'ok', 'words_count': Word.query.count()})
+
 
 # ========== ИНИЦИАЛИЗАЦИЯ ПРИ ЗАПУСКЕ ==========
 with app.app_context():
