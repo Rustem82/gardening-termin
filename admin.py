@@ -303,9 +303,10 @@ def add_word():
             flash('So\'z kiritilmagan!', 'danger')
             return redirect(url_for('admin.add_word'))
 
-        existing = Word.query.filter_by(word=word_text).first()
+        existing = Word.query.filter(db.func.lower(Word.word) == word_text.lower()).first()
         if existing:
-            flash(f'Bu so\'z allaqachon mavjud: "{word_text}"', 'warning')
+            flash(f'Bu so\'z allaqachon mavjud: "{existing.word}"', 'warning')
+            return redirect(url_for('admin.edit_word', word_id=existing.id))
 
         # Обработка изображения
         image_url = request.form.get('image_url', '').strip()
@@ -670,6 +671,16 @@ def export_json():
 @admin_bp.route('/api/import-json', methods=['POST'])
 @admin_required
 def import_json():
+    """
+    Надёжный импорт JSON.
+
+    Режимы:
+    - с галочкой clear_existing: полностью заменяет словарную БД содержимым JSON;
+    - без галочки: обновляет существующие слова и добавляет новые;
+    - дубликаты внутри одного JSON не создаются;
+    - связанные таблицы очищаются безопасно;
+    - изображения в static/uploads физически НЕ удаляются.
+    """
     import json
 
     if 'file' not in request.files:
@@ -677,265 +688,382 @@ def import_json():
         return redirect(url_for('admin.import_export'))
 
     file = request.files['file']
-    if file.filename == '':
+    if not file or file.filename == '':
         flash('Fayl tanlanmagan', 'danger')
         return redirect(url_for('admin.import_export'))
 
-    if not file.filename.endswith('.json'):
+    if not file.filename.lower().endswith('.json'):
         flash('Faqat JSON fayllar qabul qilinadi', 'danger')
         return redirect(url_for('admin.import_export'))
 
-    try:
-        content = file.read().decode('utf-8')
-        data = json.loads(content)
+    def first_value(item, keys, default=''):
+        """Возвращает первое непустое значение из набора ключей."""
+        for key in keys:
+            value = item.get(key)
+            if value is not None and value != '':
+                return value
+        return default
 
-        clear_existing = request.form.get('clear_existing') == 'on'
-        if clear_existing:
-            # Удаляем все изображения перед очисткой
-            words_to_delete = Word.query.filter(Word.word.notlike('_category_placeholder_%')).all()
-            for w in words_to_delete:
-                if w.image_url:
-                    delete_image(w.image_url)
-            Word.query.filter(Word.word.notlike('_category_placeholder_%')).delete()
-            db.session.commit()
-            flash('Mavjud ma\'lumotlar tozalandi', 'info')
+    def as_list(value):
+        """Нормализует строку/список в список непустых значений."""
+        if value is None:
+            return []
 
-        imported_count = 0
-        duplicate_in_json = 0
-        errors = []
-        temp_words = set()
+        if isinstance(value, (list, tuple, set)):
+            raw = list(value)
+        else:
+            value = str(value).strip()
+            if not value:
+                return []
+            # Большинство полей в исходном JSON разделены запятыми.
+            raw = value.split(',')
 
-        for idx, item in enumerate(data):
-            word_text = None
-            for key in ['uzbek', 'word', 'Qishloq xo\'jaligi terminlari', 'soz', 'name']:
-                if key in item and item[key]:
-                    word_text = str(item[key]).strip().lower()
-                    break
+        ignored = {
+            '', '-', '—', 'yo‘q', "yo'q", 'yoq',
+            'нет', 'none', 'null', 'None'
+        }
 
-            if not word_text:
+        result = []
+        seen = set()
+
+        for item_value in raw:
+            item_value = str(item_value).strip()
+            if not item_value or item_value in ignored or item_value.lower() in {
+                '', '-', '—', "yo'q", 'yoq', 'нет', 'none', 'null'
+            }:
                 continue
 
-            if word_text in temp_words:
+            marker = item_value.casefold()
+            if marker not in seen:
+                seen.add(marker)
+                result.append(item_value)
+
+        return result
+
+    def replace_relations(word, item):
+        """Полностью заменяет связи одного слова данными из JSON."""
+        WordCategory.query.filter_by(word_id=word.id).delete(synchronize_session=False)
+        WordSynonym.query.filter_by(word_id=word.id).delete(synchronize_session=False)
+        WordAntonym.query.filter_by(word_id=word.id).delete(synchronize_session=False)
+        WordHyperonym.query.filter_by(word_id=word.id).delete(synchronize_session=False)
+        WordHyponym.query.filter_by(word_id=word.id).delete(synchronize_session=False)
+        WordHolonym.query.filter_by(word_id=word.id).delete(synchronize_session=False)
+        WordMeronym.query.filter_by(word_id=word.id).delete(synchronize_session=False)
+        WordHomonym.query.filter_by(word_id=word.id).delete(synchronize_session=False)
+        WordParonym.query.filter_by(word_id=word.id).delete(synchronize_session=False)
+        WordUsageArea.query.filter_by(word_id=word.id).delete(synchronize_session=False)
+
+        # Категории / часть речи
+        categories_value = first_value(
+            item,
+            ['categories', 'turkumi', 'part_of_speech_uz'],
+            []
+        )
+        for category in as_list(categories_value):
+            db.session.add(WordCategory(word_id=word.id, category=category))
+
+        # Синонимы: поддерживаем и экспортный формат, и yangi.json
+        synonyms_value = first_value(
+            item,
+            ["synonyms", "sinonimi (ma'nodoshi)", 'sinonimi', 'synonyms_uz'],
+            []
+        )
+        for value in as_list(synonyms_value):
+            db.session.add(WordSynonym(word_id=word.id, related_word=value))
+
+        # Английские синонимы также сохраняем в существующую таблицу
+        for value in as_list(item.get('synonyms_en', [])):
+            exists = WordSynonym.query.filter_by(
+                word_id=word.id,
+                related_word=value
+            ).first()
+            if not exists:
+                db.session.add(WordSynonym(word_id=word.id, related_word=value))
+
+        relation_specs = [
+            (
+                WordAntonym,
+                ['antonyms', "antonimi (zid ma'nosi)", 'antonimi', 'antonyms_uz']
+            ),
+            (
+                WordHyperonym,
+                ['hyperonyms', 'гиперонимы', 'giperonimi (jins)', 'giperonimi']
+            ),
+            (
+                WordHyponym,
+                ['hyponyms', 'гипонимы', 'giponimi (tur)', 'giponimi']
+            ),
+            (
+                WordHolonym,
+                ['holonyms', 'xolonim (butun)i', 'xolonim']
+            ),
+            (
+                WordMeronym,
+                ['meronyms', 'meronimi (qismi)', 'meronim']
+            ),
+            (
+                WordHomonym,
+                ['homonyms', 'omonimi (shakldoshi)', 'omonim']
+            ),
+            (
+                WordParonym,
+                ['paronyms', 'paronimi (talaffuzdoshi)', 'paronim']
+            ),
+        ]
+
+        for model, keys in relation_specs:
+            values = as_list(first_value(item, keys, []))
+            for value in values:
+                db.session.add(model(word_id=word.id, related_word=value))
+
+        # Области применения: экспортный и исходный форматы
+        usage_values = []
+
+        for key in [
+            'usage_areas',
+            "qaysi sohada qo'llanilishi",
+            'qaysi sohada qollanilishi',
+            'qollanilishi',
+            'field_uz',
+            'field_en',
+        ]:
+            usage_values.extend(as_list(item.get(key, [])))
+
+        seen_usage = set()
+        for area in usage_values:
+            marker = area.casefold()
+            if marker in seen_usage:
+                continue
+            seen_usage.add(marker)
+            db.session.add(WordUsageArea(word_id=word.id, area=area))
+
+    def clear_dictionary_tables():
+        """
+        Полностью очищает словарные таблицы.
+
+        Таблица User НЕ удаляется, поэтому администратор остаётся.
+        Файлы static/uploads НЕ удаляются.
+        """
+        WordCategory.query.delete(synchronize_session=False)
+        WordSynonym.query.delete(synchronize_session=False)
+        WordAntonym.query.delete(synchronize_session=False)
+        WordHyperonym.query.delete(synchronize_session=False)
+        WordHyponym.query.delete(synchronize_session=False)
+        WordHolonym.query.delete(synchronize_session=False)
+        WordMeronym.query.delete(synchronize_session=False)
+        WordHomonym.query.delete(synchronize_session=False)
+        WordParonym.query.delete(synchronize_session=False)
+        WordUsageArea.query.delete(synchronize_session=False)
+        Word.query.delete(synchronize_session=False)
+        db.session.flush()
+
+    try:
+        # utf-8-sig также корректно читает JSON с BOM.
+        content = file.read().decode('utf-8-sig')
+        data = json.loads(content)
+
+        if not isinstance(data, list):
+            flash('JSON ildiz elementi ro‘yxat (array) bo‘lishi kerak', 'danger')
+            return redirect(url_for('admin.import_export'))
+
+        clear_existing = request.form.get('clear_existing') == 'on'
+
+        if clear_existing:
+            try:
+                clear_dictionary_tables()
+                db.session.commit()
+                flash(
+                    '✅ Eski terminlar va barcha bog‘lanishlar to‘liq o‘chirildi.',
+                    'success'
+                )
+            except Exception as exc:
+                db.session.rollback()
+                flash(
+                    f'❌ Eski ma’lumotlarni o‘chirishda xatolik: {exc}',
+                    'danger'
+                )
+                return redirect(url_for('admin.import_export'))
+
+        imported_count = 0
+        created_count = 0
+        updated_count = 0
+        duplicate_in_json = 0
+        skipped_count = 0
+        errors = []
+        seen_json_words = set()
+
+        # Локальные изображения используются как fallback.
+        # Если Blob доступен, load_blob_map также может вернуть Blob URL.
+        try:
+            image_map = load_blob_map(current_app.root_path, app=current_app)
+        except Exception as exc:
+            current_app.logger.warning('Image map load failed during import: %s', exc)
+            image_map = {}
+
+        for idx, item in enumerate(data, start=1):
+            if not isinstance(item, dict):
+                skipped_count += 1
+                continue
+
+            word_text = first_value(
+                item,
+                ['uzbek', 'word', "Qishloq xo'jaligi terminlari", 'soz', 'name'],
+                ''
+            )
+            word_text = str(word_text).strip()
+
+            if not word_text:
+                skipped_count += 1
+                continue
+
+            word_key = word_text.casefold()
+
+            # Не импортируем одно и то же слово дважды из одного JSON.
+            if word_key in seen_json_words:
                 duplicate_in_json += 1
-            temp_words.add(word_text)
+                continue
+            seen_json_words.add(word_key)
 
             try:
-                definition = item.get('Izohi', '') or item.get('определение', '') or item.get('definition',
-                                                                                              '') or item.get(
-                    'definition_uz', '')
+                definition = first_value(
+                    item,
+                    ['Izohi', 'определение', 'definition', 'definition_uz'],
+                    "Ta'rif mavjud emas"
+                )
                 if not definition:
                     definition = "Ta'rif mavjud emas"
 
-                etymology = item.get('Etimologiyasi', '') or item.get('etymology_uz', '')
-                if isinstance(etymology, list):
-                    etymology = ' '.join(etymology)
-
-                translation_en = item.get('Tarjimasi (ingliz tili)', '') or item.get('english', '')
-                if translation_en and isinstance(translation_en, str):
-                    translation_en = translation_en.strip()
-
-                definition_en = item.get('definition_en', '')
-                example_uz = item.get('example_uz', '')
-                example_en = item.get('example_en', '')
-                pronunciation = item.get('pronunciation', '')
-                part_of_speech_en = item.get('part_of_speech_en', '')
-                etymology_en = item.get('etymology_en', '')
-                image_url = item.get('image_url', '')
-
-                word = Word(
-                    word=word_text,
-                    definition=definition,
-                    etymology=etymology,
-                    translation_en=translation_en,
-                    definition_en=definition_en,
-                    example_uz=example_uz,
-                    example_en=example_en,
-                    pronunciation=pronunciation,
-                    part_of_speech_en=part_of_speech_en,
-                    etymology_en=etymology_en,
-                    image_url=image_url
+                etymology = first_value(
+                    item,
+                    ['Etimologiyasi', 'etymology', 'etymology_uz'],
+                    ''
                 )
-                db.session.add(word)
-                db.session.flush()
+                if isinstance(etymology, list):
+                    etymology = ' '.join(str(v) for v in etymology)
 
-                turkum = item.get('turkumi', '') or item.get('part_of_speech_uz', '')
-                if turkum:
-                    added_cats = set()
-                    for cat in str(turkum).split(','):
-                        cat = cat.strip()
-                        if cat and cat not in added_cats:
-                            added_cats.add(cat)
-                            if not WordCategory.query.filter_by(word_id=word.id, category=cat).first():
-                                db.session.add(WordCategory(word_id=word.id, category=cat))
+                translation_en = first_value(
+                    item,
+                    ['Tarjimasi (ingliz tili)', 'translation_en', 'english'],
+                    ''
+                )
 
-                sinonim = item.get('sinonimi (ma\'nodoshi)', '') or item.get('sinonimi', '') or item.get('synonyms_uz',
-                                                                                                         '')
-                if sinonim:
-                    added_syns = set()
-                    for syn in str(sinonim).split(','):
-                        syn = syn.strip()
-                        if syn and syn.lower() not in ['yo\'q', 'yoq', 'нет', 'none', '', '-', '—']:
-                            if syn not in added_syns:
-                                added_syns.add(syn)
-                                if not WordSynonym.query.filter_by(word_id=word.id, related_word=syn).first():
-                                    db.session.add(WordSynonym(word_id=word.id, related_word=syn))
+                definition_en = first_value(item, ['definition_en'], '')
+                example_uz = first_value(item, ['example_uz'], '')
+                example_en = first_value(item, ['example_en'], '')
+                pronunciation = first_value(item, ['pronunciation'], '')
+                part_of_speech_en = first_value(item, ['part_of_speech_en'], '')
+                etymology_en = first_value(item, ['etymology_en'], '')
 
-                antonim = item.get('antonimi (zid ma\'nosi)', '') or item.get('antonimi', '') or item.get('antonyms_uz',
-                                                                                                          '')
-                if antonim:
-                    added_ants = set()
-                    for ant in str(antonim).split(','):
-                        ant = ant.strip()
-                        if ant and ant.lower() not in ['yo\'q', 'yoq', 'нет', 'none', '', '-', '—']:
-                            if ant not in added_ants:
-                                added_ants.add(ant)
-                                if not WordAntonym.query.filter_by(word_id=word.id, related_word=ant).first():
-                                    db.session.add(WordAntonym(word_id=word.id, related_word=ant))
+                incoming_image_url = str(item.get('image_url') or '').strip()
 
-                giperonim = item.get('giperonimi (jins)', '') or item.get('giperonimi', '') or item.get('гиперонимы',
-                                                                                                        '') or item.get(
-                    'hyperonyms', '')
-                if giperonim:
-                    added_hyps = set()
-                    for hyp in str(giperonim).split(','):
-                        hyp = hyp.strip()
-                        if hyp and hyp.lower() not in ['yo\'q', 'yoq', 'нет', 'none', '']:
-                            if hyp not in added_hyps:
-                                added_hyps.add(hyp)
-                                if not WordHyperonym.query.filter_by(word_id=word.id, related_word=hyp).first():
-                                    db.session.add(WordHyperonym(word_id=word.id, related_word=hyp))
+                # Case-insensitive upsert: повторно такое слово не создаём.
+                word = Word.query.filter(
+                    db.func.lower(Word.word) == word_text.lower()
+                ).order_by(Word.id.asc()).first()
 
-                giponim = item.get('giponimi (tur)', '') or item.get('giponimi', '') or item.get('гипонимы',
-                                                                                                 '') or item.get(
-                    'hyponyms', '')
-                if giponim:
-                    added_hypos = set()
-                    for hypo in str(giponim).split(','):
-                        hypo = hypo.strip()
-                        if hypo and hypo.lower() not in ['yo\'q', 'yoq', 'нет', 'none', '']:
-                            if hypo not in added_hypos:
-                                added_hypos.add(hypo)
-                                if not WordHyponym.query.filter_by(word_id=word.id, related_word=hypo).first():
-                                    db.session.add(WordHyponym(word_id=word.id, related_word=hypo))
+                if word is None:
+                    word = Word(word=word_text, definition=str(definition))
+                    db.session.add(word)
+                    db.session.flush()
+                    created_count += 1
+                else:
+                    updated_count += 1
 
-                xolonim = item.get('xolonim (butun)i', '') or item.get('xolonim', '') or item.get('holonyms', '')
-                if xolonim:
-                    added_hols = set()
-                    for hol in str(xolonim).split(','):
-                        hol = hol.strip()
-                        if hol and hol.lower() not in ['yo\'q', 'yoq', 'нет', 'none', '']:
-                            if hol not in added_hols:
-                                added_hols.add(hol)
-                                if not WordHolonym.query.filter_by(word_id=word.id, related_word=hol).first():
-                                    db.session.add(WordHolonym(word_id=word.id, related_word=hol))
+                word.word = word_text
+                word.definition = str(definition)
+                word.etymology = str(etymology or '')
+                word.translation_en = str(translation_en or '').strip()
+                word.definition_en = str(definition_en or '')
+                word.example_uz = str(example_uz or '')
+                word.example_en = str(example_en or '')
+                word.pronunciation = str(pronunciation or '')
+                word.part_of_speech_en = str(part_of_speech_en or '')
+                word.etymology_en = str(etymology_en or '')
 
-                meronim = item.get('meronimi (qismi)', '') or item.get('meronim', '') or item.get('meronyms', '')
-                if meronim:
-                    added_mers = set()
-                    for mer in str(meronim).split(','):
-                        mer = mer.strip()
-                        if mer and mer.lower() not in ['yo\'q', 'yoq', 'нет', 'none', '']:
-                            if mer not in added_mers:
-                                added_mers.add(mer)
-                                if not WordMeronym.query.filter_by(word_id=word.id, related_word=mer).first():
-                                    db.session.add(WordMeronym(word_id=word.id, related_word=mer))
+                # Приоритет:
+                # 1) image_url из JSON
+                # 2) автосопоставление с Blob / static/uploads
+                # 3) уже существующий image_url
+                if incoming_image_url:
+                    word.image_url = incoming_image_url
+                else:
+                    matched_url = find_image_url(word_text, image_map) if image_map else None
+                    if matched_url:
+                        word.image_url = matched_url
 
-                omonim = item.get('omonimi (shakldoshi)', '') or item.get('omonim', '') or item.get('homonyms', '')
-                if omonim and omonim not in [None, 'null', 'None', '']:
-                    added_homs = set()
-                    for hom in str(omonim).split(','):
-                        hom = hom.strip()
-                        if hom and hom.lower() not in ['yo\'q', 'yoq', 'нет', 'none', 'null', '']:
-                            if hom not in added_homs:
-                                added_homs.add(hom)
-                                if not WordHomonym.query.filter_by(word_id=word.id, related_word=hom).first():
-                                    db.session.add(WordHomonym(word_id=word.id, related_word=hom))
-
-                paronim = item.get('paronimi (talaffuzdoshi)', '') or item.get('paronim', '') or item.get('paronyms',
-                                                                                                          '')
-                if paronim and paronim not in [None, 'null', 'None', '']:
-                    added_pars = set()
-                    for par in str(paronim).split(','):
-                        par = par.strip()
-                        if par and par.lower() not in ['yo\'q', 'yoq', 'нет', 'none', 'null', '']:
-                            if par not in added_pars:
-                                added_pars.add(par)
-                                if not WordParonym.query.filter_by(word_id=word.id, related_word=par).first():
-                                    db.session.add(WordParonym(word_id=word.id, related_word=par))
-
-                usage_uz = item.get('qaysi sohada qo\'llanilishi', '') or item.get('qaysi sohada qollanilishi',
-                                                                                   '') or item.get('qollanilishi',
-                                                                                                   '') or item.get(
-                    'field_uz', '')
-                usage_en = item.get('field_en', '')
-
-                all_usage = []
-                if usage_uz:
-                    for area in str(usage_uz).split(','):
-                        area = area.strip()
-                        if area and area.lower() not in ['yo\'q', 'yoq', 'нет', 'none', '', '-', '—', 'null']:
-                            all_usage.append(area)
-                if usage_en:
-                    for area in str(usage_en).split(','):
-                        area = area.strip()
-                        if area and area.lower() not in ['yo\'q', 'yoq', 'нет', 'none', '', '-', '—', 'null']:
-                            all_usage.append(area)
-
-                for area in all_usage:
-                    if not WordUsageArea.query.filter_by(word_id=word.id, area=area).first():
-                        db.session.add(WordUsageArea(word_id=word.id, area=area))
-
-                synonyms_en = item.get('synonyms_en', '')
-                if synonyms_en:
-                    for syn_en in str(synonyms_en).split(','):
-                        syn_en = syn_en.strip()
-                        if syn_en and syn_en.lower() not in ['yo\'q', 'yoq', 'нет', 'none', '']:
-                            if not WordSynonym.query.filter_by(word_id=word.id, related_word=syn_en).first():
-                                db.session.add(WordSynonym(word_id=word.id, related_word=syn_en))
+                replace_relations(word, item)
 
                 imported_count += 1
 
+                # На больших JSON сохраняем порциями.
                 if imported_count % 100 == 0:
                     db.session.commit()
-                    print(f"✅ {imported_count} ta so'z import qilindi...")
+                    current_app.logger.info(
+                        'JSON import progress: %s records',
+                        imported_count
+                    )
 
-            except Exception as e:
-                errors.append(f"'{word_text}': {str(e)}")
-                print(f"❌ ERROR for '{word_text}': {str(e)}")
+            except Exception as exc:
+                db.session.rollback()
+                errors.append(f'{word_text}: {exc}')
+                current_app.logger.exception(
+                    'JSON import error for %s',
+                    word_text
+                )
+                # После rollback продолжаем со следующей записью.
                 continue
 
         db.session.commit()
 
-        # После импорта автоматически привязываем изображения
-        linked, skipped = auto_link_images()
-        if linked > 0:
-            flash(f'✅ {linked} ta rasm avtomatik bog\'landi!', 'success')
-        if skipped > 0:
-            flash(f'ℹ️ {skipped} ta rasm allaqachon bog\'langan yoki mos kelmadi', 'info')
+        # Дополнительная попытка привязать локальные изображения.
+        # Она не создаёт термины и не влияет на их количество.
+        try:
+            linked, skipped_images = auto_link_images()
+        except Exception as exc:
+            current_app.logger.warning(
+                'Auto-link after JSON import failed: %s',
+                exc
+            )
+            linked, skipped_images = 0, 0
 
-        total_records = Word.query.filter(Word.word.notlike('_category_placeholder_%')).count()
-        unique_words = db.session.query(Word.word).distinct().filter(
-            Word.word.notlike('_category_placeholder_%')).count()
+        total_records = Word.query.filter(
+            ~Word.word.startswith('_category_placeholder_')
+        ).count()
+
+        unique_words = db.session.query(
+            db.func.lower(Word.word)
+        ).filter(
+            ~Word.word.startswith('_category_placeholder_')
+        ).distinct().count()
+
         total_usage = WordUsageArea.query.count()
 
-        msg = f'✅ Jami: {len(data)} ta yozuv (JSON da)\n'
-        msg += f'✅ Import qilindi: {imported_count} ta yozuv\n'
-        msg += f'⚠️ JSON da dublikatlar: {duplicate_in_json} ta\n'
-        msg += f'📊 Jami yozuvlar bazada: {total_records} ta\n'
-        msg += f'🔍 Unikal so\'zlar: {unique_words} ta\n'
-        msg += f'🏷️ Qo\'llanilish sohalari: {total_usage} ta yozuv'
+        msg = (
+            f'✅ JSON: {len(data)} ta yozuv\n'
+            f'✅ Qayta ishlangan: {imported_count} ta\n'
+            f'➕ Yangi: {created_count} ta\n'
+            f'♻️ Yangilangan: {updated_count} ta\n'
+            f'⚠️ JSON ichidagi dublikatlar: {duplicate_in_json} ta\n'
+            f'⏭️ O‘tkazib yuborilgan: {skipped_count} ta\n'
+            f'🖼️ Rasm bog‘landi: {linked} ta\n'
+            f'📊 Bazadagi terminlar: {total_records} ta\n'
+            f'🔍 Unikal terminlar: {unique_words} ta\n'
+            f'🏷️ Qo‘llanilish sohasi yozuvlari: {total_usage} ta'
+        )
 
         if errors:
             msg += f'\n❌ Xatolar: {len(errors)} ta'
 
-        flash(msg, 'success')
+        flash(msg, 'success' if not errors else 'warning')
 
-    except json.JSONDecodeError as e:
-        flash(f'JSON fayl xatosi: {str(e)}', 'danger')
-    except Exception as e:
+    except json.JSONDecodeError as exc:
         db.session.rollback()
-        flash(f'Import xatosi: {str(e)}', 'danger')
-        print(f"❌ Import exception: {str(e)}")
+        flash(f'JSON fayl xatosi: {exc}', 'danger')
+
+    except Exception as exc:
+        db.session.rollback()
+        current_app.logger.exception('JSON import failed: %s', exc)
+        flash(f'Import xatosi: {exc}', 'danger')
 
     return redirect(url_for('admin.import_export'))
 
