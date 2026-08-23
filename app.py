@@ -235,10 +235,12 @@ def fields_list():
 
 @app.route('/field/<path:field_name>')
 def field_page(field_name):
-    # Vercel/браузер иногда может передать уже URL-кодированное значение
-    # повторно (например Agrobiologik%20asoslar). Декодируем до 3 раз,
-    # пока строка не перестанет меняться.
-    decoded_name = field_name
+    from urllib.parse import unquote
+    from sqlalchemy import or_
+
+    # Иногда ссылка может оказаться закодирована повторно.
+    # Например: Agrobiologik%2520asoslar -> Agrobiologik%20asoslar -> Agrobiologik asoslar
+    decoded_name = str(field_name or '')
     for _ in range(3):
         new_value = unquote(decoded_name)
         if new_value == decoded_name:
@@ -248,22 +250,30 @@ def field_page(field_name):
     decoded_name = decoded_name.replace('+', ' ')
     decoded_name = ' '.join(decoded_name.split()).strip()
 
-    # Поддерживаем разные варианты узбекского апострофа.
+    # В базе поле хранится как, например:
+    # "Agrobiologik asoslar → Botanika".
+    # Поэтому ищем название раздела как подстроку.
     variants = {
         decoded_name,
         decoded_name.replace('‘', "'").replace('’', "'").replace('ʻ', "'").replace('ʼ', "'"),
         decoded_name.replace("'", '‘'),
         decoded_name.replace("'", '’'),
         decoded_name.replace("'", 'ʻ'),
+        decoded_name.replace("'", 'ʼ'),
     }
-    variants = {v for v in variants if v}
+    variants = [v for v in variants if v]
 
-    filters = [Word.usage_areas.any(WordUsageArea.area.ilike(f'%{v}%')) for v in variants]
-
-    words = Word.query.filter(
-        db.or_(*filters),
-        ~Word.word.startswith('_category_placeholder_')
-    ).order_by(Word.word).all() if filters else []
+    if not variants:
+        words = []
+    else:
+        area_conditions = [
+            Word.usage_areas.any(WordUsageArea.area.ilike(f'%{variant}%'))
+            for variant in variants
+        ]
+        words = Word.query.filter(
+            or_(*area_conditions),
+            ~Word.word.startswith('_category_placeholder_')
+        ).order_by(Word.word).all()
 
     return render_template(
         'field_page.html',
