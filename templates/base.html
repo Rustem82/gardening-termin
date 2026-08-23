@@ -950,7 +950,7 @@
                 <li><a href="{{ url_for('about') }}" class="nav-link {% if request.endpoint == 'about' %}active{% endif %}">Loyiha haqida</a></li>
                 <li><a href="{{ url_for('agriculture_stats') }}" class="nav-link">📊 Statistika</a></li>
                 {% if is_admin %}
-                <li><a href="{{ url_for('admin.dashboard') }}" class="nav-link {% if request.endpoint.startswith('admin.') %}active{% endif %}">Admin</a></li>
+                <li><a href="{{ url_for('admin.dashboard') }}" class="nav-link {% if (request.endpoint or '').startswith('admin.') %}active{% endif %}">Admin</a></li>
                 {% endif %}
             </ul>
 

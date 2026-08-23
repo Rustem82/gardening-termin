@@ -9,6 +9,7 @@ from datetime import datetime
 import os
 import uuid
 import re
+from data_sync import load_blob_map, find_image_url
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
@@ -23,26 +24,41 @@ def allowed_file(filename):
 
 
 def save_image(file, custom_name=None):
-    """Сохраняет загруженное изображение и возвращает URL"""
-    if file and allowed_file(file.filename):
-        # Создаем уникальное имя файла или используем custom_name
-        ext = file.filename.rsplit('.', 1)[1].lower()
-        if custom_name:
-            filename = f"{custom_name}.{ext}"
-        else:
-            filename = f"{uuid.uuid4().hex}.{ext}"
+    """Save an uploaded image to Vercel Blob when configured, otherwise locally."""
+    if not file or not allowed_file(file.filename):
+        return None
 
-        # Создаем папку если её нет
-        upload_path = os.path.join(current_app.root_path, UPLOAD_FOLDER)
-        os.makedirs(upload_path, exist_ok=True)
+    ext = file.filename.rsplit('.', 1)[1].lower()
+    base = secure_filename(custom_name or os.path.splitext(file.filename)[0]) or uuid.uuid4().hex
+    filename = f"{base}.{ext}"
 
-        # Сохраняем файл
-        filepath = os.path.join(upload_path, filename)
-        file.save(filepath)
+    token = os.environ.get('BLOB_READ_WRITE_TOKEN')
+    if token:
+        try:
+            try:
+                import vercel_blob.blob_store as vb_store
+            except Exception:
+                import vercel_blob as vb_store
+            payload = file.read()
+            # The package reads BLOB_READ_WRITE_TOKEN from the environment.
+            # Keep a stable pathname so the image can be matched to the term.
+            result = vb_store.put(filename, payload, {'addRandomSuffix': 'false'})
+            if hasattr(result, 'url'):
+                return result.url
+            if isinstance(result, dict):
+                return result.get('url')
+        except Exception as exc:
+            current_app.logger.exception('Vercel Blob upload failed: %s', exc)
+            try:
+                file.stream.seek(0)
+            except Exception:
+                pass
 
-        # Возвращаем URL
-        return f"/{UPLOAD_FOLDER}{filename}"
-    return None
+    upload_path = os.path.join(current_app.root_path, UPLOAD_FOLDER)
+    os.makedirs(upload_path, exist_ok=True)
+    filepath = os.path.join(upload_path, filename)
+    file.save(filepath)
+    return f"/{UPLOAD_FOLDER}{filename}"
 
 
 def delete_image(image_url):
@@ -201,6 +217,7 @@ def logout():
 
 # ========== DASHBOARD ==========
 @admin_bp.route('/')
+@admin_bp.route('/dashboard')
 @admin_required
 def dashboard():
     words_count = Word.query.count()
@@ -233,31 +250,38 @@ def dashboard():
 @admin_bp.route('/auto-link-images', methods=['GET', 'POST'])
 @admin_required
 def auto_link_images_route():
+    blob_map = load_blob_map(current_app.root_path, app=current_app)
     if request.method == 'POST':
-        linked, skipped = auto_link_images()
+        linked = 0
+        skipped = 0
+        for word in Word.query.filter(~Word.word.startswith('_category_placeholder_')).all():
+            url = find_image_url(word.word, blob_map)
+            if url:
+                # Replace stale/guessed URLs as well as empty values.
+                if word.image_url != url:
+                    word.image_url = url
+                    linked += 1
+                else:
+                    skipped += 1
+            else:
+                skipped += 1
+        if linked:
+            db.session.commit()
         flash(f'✅ {linked} ta rasm muvaffaqiyatli bog\'landi!', 'success')
-        if skipped > 0:
-            flash(f'ℹ️ {skipped} ta rasm allaqachon bog\'langan yoki mos kelmadi', 'info')
+        if skipped:
+            flash(f'ℹ️ {skipped} ta yozuv allaqachon bog\'langan yoki Blob fayli topilmadi', 'info')
         return redirect(url_for('admin.dashboard'))
 
-    # GET - показываем страницу с предпросмотром
-    upload_path = os.path.join(current_app.root_path, UPLOAD_FOLDER)
     images = []
-    if os.path.exists(upload_path):
-        for f in os.listdir(upload_path):
-            if allowed_file(f):
-                word_text = get_word_from_filename(f)
-                word = Word.query.filter(
-                    Word.word.ilike(word_text),
-                    ~Word.word.startswith('_category_placeholder_')
-                ).first()
-                images.append({
-                    'filename': f,
-                    'word': word_text,
-                    'found_word': word.word if word else None,
-                    'has_image': word and word.image_url
-                })
-
+    for key, url in list(blob_map.items())[:5000]:
+        word = Word.query.filter(Word.word.ilike(key)).first()
+        images.append({
+            'filename': url.rsplit('/', 1)[-1],
+            'word': key,
+            'found_word': word.word if word else None,
+            'has_image': bool(word and word.image_url),
+            'url': url,
+        })
     return render_template('admin/auto_link_images.html', images=images)
 
 
@@ -931,18 +955,24 @@ def api_words_search():
 
 # ========== СОЗДАНИЕ АДМИНИСТРАТОРА ==========
 def create_admin():
-    admin = User.query.filter_by(username='admin').first()
+    username = os.environ.get('ADMIN_USERNAME', 'admin')
+    password = os.environ.get('ADMIN_PASSWORD')
+    if not password:
+        if os.environ.get('VERCEL'):
+            current_app.logger.warning('ADMIN_PASSWORD is not set; admin account was not auto-created.')
+            return None
+        password = 'admin123'  # local development only
+    admin = User.query.filter_by(username=username).first()
     if not admin:
         admin = User(
-            username='admin',
-            password_hash=generate_password_hash('admin123'),
+            username=username,
+            password_hash=generate_password_hash(password),
             is_admin=True
         )
         db.session.add(admin)
         db.session.commit()
-        print('✅ Admin created: username=admin, password=admin123')
-    else:
-        print('✅ Admin already exists')
+        current_app.logger.info('Admin account created for %s', username)
+    return admin
 
 
 # ========== РЕДАКТИРОВАНИЕ КАТЕГОРИИ ЧЕРЕЗ AJAX ==========

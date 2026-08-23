@@ -99,7 +99,7 @@
                         {% for word in recent_words %}
                         <div class="recent-word-item">
                             <span class="word-name">{{ word.word }}</span>
-                            <span class="word-date">{{ word.created_at.strftime('%d.%m.%Y') }}</span>
+                            <span class="word-date">{{ word.created_at.strftime('%d.%m.%Y') if word.created_at else '-' }}</span>
                         </div>
                         {% endfor %}
                     </div>

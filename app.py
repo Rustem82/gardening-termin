@@ -4,9 +4,9 @@ from config import Config
 from models import db, Word, WordCategory, WordSynonym, WordAntonym, WordHyperonym, WordHyponym, WordHolonym, \
     WordMeronym, WordHomonym, WordParonym, WordUsageArea, Visit, UserVisit
 from admin import admin_bp, create_admin
+from data_sync import ensure_word_columns, sync_dataset
 from datetime import datetime
 import os
-import sqlite3
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -30,37 +30,19 @@ def load_user(user_id):
 app.register_blueprint(admin_bp)
 
 
-# ========== ФУНКЦИЯ ПРИНУДИТЕЛЬНОГО ОБНОВЛЕНИЯ СТРУКТУРЫ БАЗЫ ==========
-def ensure_new_columns():
-    """Проверяет существование новых колонок и при необходимости пересоздаёт таблицы."""
-    try:
-        with app.app_context():
-            conn = sqlite3.connect(Config.SQLALCHEMY_DATABASE_URI.replace('sqlite:///', ''))
-            cursor = conn.cursor()
-            cursor.execute("PRAGMA table_info(word)")
-            columns = [col[1] for col in cursor.fetchall()]
-            conn.close()
-
-            if 'definition_en' not in columns:
-                print("⚠️ Обнаружена устаревшая структура базы. Пересоздание таблиц...")
-                with app.app_context():
-                    db.drop_all()
-                    db.create_all()
-                    create_admin()
-                print("✅ База данных пересоздана с новой структурой.")
-            else:
-                print("✅ Структура базы данных актуальна.")
-    except Exception as e:
-        print(f"⚠️ Ошибка при проверке структуры: {e}")
-        with app.app_context():
-            db.drop_all()
-            db.create_all()
-            create_admin()
+# ========== DATABASE BOOTSTRAP ==========
+def bootstrap_database():
+    """Create missing tables/columns and synchronize the packaged dataset once per version."""
+    db.create_all()
+    ensure_word_columns()
+    create_admin()
+    if app.config.get('AUTO_SYNC_DATA', True):
+        result = sync_dataset(app)
+        app.logger.info("Dataset sync: %s", result)
 
 
 with app.app_context():
-    db.create_all()
-    # ensure_new_columns()  # Раскомментируйте, если нужно пересоздать таблицы при обновлении структуры
+    bootstrap_database()
 
 
 @app.before_request
@@ -80,7 +62,7 @@ def index():
 
     if letter and letter in alphabet:
         selected_letter = letter
-        words = Word.query.filter(Word.word.startswith(letter)).order_by(Word.word).all()
+        words = Word.query.filter(Word.word.ilike(f'{letter}%'), ~Word.word.startswith('_category_placeholder_')).order_by(Word.word).all()
 
     try:
         popular_words = [w.word for w in Word.query.order_by(Word.word).limit(5).all()]
@@ -752,12 +734,13 @@ def inject_globals():
     except Exception:
         total_words = total_categories = total_synonyms = 0
 
+    authenticated = bool(getattr(current_user, 'is_authenticated', False))
     return dict(
-        is_admin=False,
-        current_user=None,
+        is_admin=authenticated and bool(getattr(current_user, 'is_admin', False)),
         total_words=total_words,
         total_categories=total_categories,
-        total_synonyms=total_synonyms
+        total_synonyms=total_synonyms,
+        database_persistent=app.config.get('DATABASE_IS_PERSISTENT', False),
     )
 
 
@@ -808,6 +791,8 @@ def page_not_found(e):
 
 @app.errorhandler(500)
 def internal_error(e):
+    db.session.rollback()
+    app.logger.exception('Internal server error: %s', e)
     return render_template('500.html'), 500
 
 
@@ -819,41 +804,6 @@ def numberformat_filter(value):
         return value
 
 
-# app.py - добавьте в конец файла, перед if __name__ == '__main__'
-
-# Инициализация базы данных при первом запуске
-def initialize_database():
-    """Инициализирует базу данных при первом запуске"""
-    import os
-    db_path = 'thesaurus_data.db'
-
-    # Проверяем, существует ли БД
-    if not os.path.exists(db_path):
-        print("📁 Первый запуск: создание базы данных...")
-        with app.app_context():
-            db.create_all()
-
-            # Создаем админа
-            from werkzeug.security import generate_password_hash
-            from models import User
-
-            admin = User.query.filter_by(username='admin').first()
-            if not admin:
-                admin = User(
-                    username='admin',
-                    password_hash=generate_password_hash('admin123'),
-                    is_admin=True
-                )
-                db.session.add(admin)
-                db.session.commit()
-                print("✅ Админ создан")
-
-            print("✅ База данных создана")
-
-
-# Вызываем инициализацию при загрузке приложения
-with app.app_context():
-    initialize_database()
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -31,7 +31,7 @@ class Word(db.Model):
     part_of_speech_en = db.Column(db.String(50))
     etymology_en = db.Column(db.Text)           # <-- ДОБАВЛЕНО
     # Внутри класса Word, после остальных колонок:
-    image_url = db.Column(db.String(300))  # Ссылка на картинку
+    image_url = db.Column(db.String(500))  # Ссылка на картинку
 
     # Связи с другими таблицами
     categories = db.relationship('WordCategory', backref='word_item', lazy='dynamic', cascade='all, delete-orphan')

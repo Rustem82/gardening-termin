@@ -22,7 +22,7 @@
                 {% for image in images %}
                 <div class="image-item">
                     <div class="image-preview">
-                        <img src="{{ url_for('static', filename='uploads/' + image.filename) }}" alt="{{ image.filename }}">
+                        <img src="{{ image.url if image.url else url_for('static', filename='uploads/' + image.filename) }}" alt="{{ image.filename }}">
                     </div>
                     <div class="image-info">
                         <div class="filename">{{ image.filename }}</div>

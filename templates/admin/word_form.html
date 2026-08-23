@@ -9,7 +9,7 @@
         <a href="{{ url_for('admin.words') }}" class="back-btn">← Orqaga</a>
     </div>
 
-    <form method="POST" class="word-form" id="wordForm">
+    <form method="POST" enctype="multipart/form-data" class="word-form" id="wordForm">
         <!-- Asosiy ma'lumotlar -->
         <div class="form-section">
             <h2>📝 Asosiy ma'lumotlar</h2>
@@ -48,7 +48,12 @@
                 <input type="text" id="image_url" name="image_url"
                        value="{{ word.image_url if word else '' }}"
                        class="form-control" placeholder="Masalan: /static/images/aborigen_o‘simliklar.jpg">
-                <small class="form-text">Internetdagi yoki mahalliy rasm manzili (jpeg, png, webp)</small>
+                <small class="form-text">Vercel Blob yoki boshqa ochiq URL manzili.</small>
+            </div>
+            <div class="form-group">
+                <label for="image_file">📤 Rasm faylini yuklash</label>
+                <input type="file" id="image_file" name="image_file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" class="form-control">
+                <small class="form-text">BLOB_READ_WRITE_TOKEN sozlangan bo‘lsa rasm Vercel Blob’ga yuklanadi.</small>
             </div>
 
             <!-- ====== YANGI: Inglizcha ma'lumotlar ====== -->

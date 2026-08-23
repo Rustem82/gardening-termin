@@ -1,30 +1,21 @@
-# Виртуальное окружение
 venv/
 env/
 .venv/
 __pycache__/
-
-# Файлы базы данных (если не хотите загружать)
-*.db
-*.sqlite
-*.sqlite3
-
-# Файлы конфигурации с секретами (если не используете переменные окружения)
-config.py
-.env
-.env.local
-
-# Файлы, создаваемые Python
 *.pyc
 *.pyo
 *.pyd
-.Python
-
-# Редакторы
+*.db
+*.sqlite
+*.sqlite3
+.env
+.env.local
 .vscode/
 .idea/
 *.swp
 *.swo
-
-# Логи
 *.log
+# config.py is application code and MUST be committed; secrets belong in env vars.
+
+.vercel
+.env*
