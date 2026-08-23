@@ -54,32 +54,6 @@ class WordCategory(db.Model):
     category = db.Column(db.String(50), nullable=False)
 
 
-class WordSynonym(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    word_id = db.Column(db.Integer, db.ForeignKey('word.id'), nullable=False)
-    related_word = db.Column(db.String(100), nullable=False)
-
-
-class WordAntonym(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    word_id = db.Column(db.Integer, db.ForeignKey('word.id'), nullable=False)
-    related_word = db.Column(db.String(100), nullable=False)
-
-
-class WordUsageArea(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    word_id = db.Column(db.Integer, db.ForeignKey('word.id'), nullable=False)
-    area = db.Column(db.String(100), nullable=False)
-
-
-# Остальные модели (WordHyperonym, WordHyponym, WordHolonym, WordMeronym, WordHomonym, WordParonym)
-# можно добавить по необходимости
-
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
-
-
 # ========== ИНИЦИАЛИЗАЦИЯ БД ==========
 def init_db():
     """Создает базу данных и импортирует данные"""
@@ -102,7 +76,7 @@ def init_db():
                 db.session.commit()
                 print("✅ Админ создан")
 
-            # Импортируем данные из JSON (если есть)
+            # Импортируем данные из JSON
             json_path = os.path.join(os.path.dirname(__file__), 'yangi.json')
             if os.path.exists(json_path):
                 try:
@@ -110,7 +84,7 @@ def init_db():
                         data = json.load(f)
 
                     count = 0
-                    for item in data[:50]:  # Для теста берем только первые 50 слов
+                    for item in data[:100]:  # Первые 100 слов для быстрого теста
                         word_text = item.get('uzbek', '')
                         if not word_text:
                             continue
@@ -151,14 +125,23 @@ def init_db():
             print("✅ Инициализация завершена")
 
 
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+
 # ========== РОУТЫ ==========
 @app.route('/')
 def index():
-    return jsonify({
-        'status': 'ok',
-        'message': 'Сервер работает!',
-        'words_count': Word.query.count()
-    })
+    try:
+        words_count = Word.query.count()
+        return jsonify({
+            'status': 'ok',
+            'message': 'Сервер работает!',
+            'words_count': words_count
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/health')
@@ -173,17 +156,11 @@ def debug():
         return jsonify({
             'files': files[:10],
             'words_count': Word.query.count(),
-            'cwd': os.getcwd()
+            'cwd': os.getcwd(),
+            'db_exists': os.path.exists('thesaurus_data.db')
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
-
-@app.route('/api/stats')
-def stats():
-    return jsonify({
-        'total_words': Word.query.count()
-    })
 
 
 # Инициализируем БД при загрузке
