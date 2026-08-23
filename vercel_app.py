@@ -5,7 +5,7 @@ import os
 # Добавляем текущую папку в путь
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
+from flask import Flask, render_template, request, jsonify, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -307,12 +307,11 @@ def stats():
         return jsonify({'error': str(e)}), 500
 
 
-# ========== СТРАНИЦА КАТЕГОРИЙ (ИСПРАВЛЕНА) ==========
+# ========== СТРАНИЦА КАТЕГОРИЙ ==========
 
 @app.route('/categories')
 def categories():
     try:
-        # Получаем все уникальные категории
         cats = db.session.query(WordCategory.category).distinct().all()
         categories = [cat[0] for cat in cats if cat[0]]
         return render_template('categories.html', categories=categories)
@@ -320,7 +319,50 @@ def categories():
         return jsonify({'error': str(e)}), 500
 
 
-# ========== АДМИН-ПАНЕЛЬ (ИСПРАВЛЕНА) ==========
+# ========== СТРАНИЦА ПОЛЕЙ ==========
+
+@app.route('/fields')
+def fields_list():
+    fields = [
+        {"name": "Agronomiya", "en": "Agronomy"},
+        {"name": "Agrobiologik asoslar", "en": "Agrobiological Foundations"},
+        {"name": "Bog'dorchilik", "en": "Horticulture"},
+        {"name": "Ko'chatchilik", "en": "Nursery Science"},
+        {"name": "Manzarali bog'dorchilik", "en": "Ornamental Horticulture"},
+        {"name": "Mevachilik", "en": "Pomology"},
+        {"name": "Seleksiya va genetika", "en": "Plant Breeding and Genetics"},
+        {"name": "O'simliklarni himoya qilish", "en": "Plant Protection"},
+        {"name": "Sabzavotchilik", "en": "Olericulture"},
+        {"name": "Uzumchilik", "en": "Viticulture"}
+    ]
+    try:
+        return render_template('fields.html', fields=fields)
+    except:
+        return jsonify({'fields': fields})
+
+
+@app.route('/field/<field_name>')
+def field_page(field_name):
+    try:
+        words = Word.query.filter(
+            Word.usage_areas.any(WordUsageArea.area.ilike(f'%{field_name}%'))
+        ).limit(50).all()
+        return render_template('field_page.html', field_name=field_name, words=words)
+    except:
+        return jsonify({'field': field_name, 'words': []})
+
+
+# ========== СТРАНИЦА О ПРОЕКТЕ ==========
+
+@app.route('/about')
+def about():
+    try:
+        return render_template('about.html')
+    except:
+        return jsonify({'message': 'Страница о проекте'})
+
+
+# ========== АДМИН-ПАНЕЛЬ ==========
 
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
@@ -333,7 +375,6 @@ def admin_login():
             login_user(user)
             return redirect(url_for('admin_dashboard'))
         else:
-            # Возвращаем страницу с ошибкой
             return '''
             <!DOCTYPE html>
             <html>
@@ -352,7 +393,6 @@ def admin_login():
             </html>
             '''
 
-    # GET запрос - показываем форму входа
     return '''
     <!DOCTYPE html>
     <html>
