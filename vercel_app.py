@@ -1,4 +1,4 @@
-# vercel_app.py - полная рабочая версия
+# vercel_app.py - ИСПРАВЛЕННАЯ ВЕРСИЯ СО ВСЕМИ СВЯЗЯМИ
 import sys
 import os
 
@@ -62,7 +62,7 @@ login_manager.init_app(app)
 login_manager.login_view = 'admin_login'
 
 
-# ========== МОДЕЛИ ==========
+# ========== МОДЕЛИ (СО ВСЕМИ СВЯЗЯМИ) ==========
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -85,6 +85,18 @@ class Word(db.Model):
     etymology_en = db.Column(db.Text)
     image_url = db.Column(db.String(500))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # ====== СВЯЗИ (ОБЯЗАТЕЛЬНО ДЛЯ РАБОТЫ) ======
+    categories = db.relationship('WordCategory', backref='word_item', lazy='dynamic', cascade='all, delete-orphan')
+    synonyms = db.relationship('WordSynonym', backref='word_item', lazy='dynamic', cascade='all, delete-orphan')
+    antonyms = db.relationship('WordAntonym', backref='word_item', lazy='dynamic', cascade='all, delete-orphan')
+    hyperonyms = db.relationship('WordHyperonym', backref='word_item', lazy='dynamic', cascade='all, delete-orphan')
+    hyponyms = db.relationship('WordHyponym', backref='word_item', lazy='dynamic', cascade='all, delete-orphan')
+    holonyms = db.relationship('WordHolonym', backref='word_item', lazy='dynamic', cascade='all, delete-orphan')
+    meronyms = db.relationship('WordMeronym', backref='word_item', lazy='dynamic', cascade='all, delete-orphan')
+    homonyms = db.relationship('WordHomonym', backref='word_item', lazy='dynamic', cascade='all, delete-orphan')
+    paronyms = db.relationship('WordParonym', backref='word_item', lazy='dynamic', cascade='all, delete-orphan')
+    usage_areas = db.relationship('WordUsageArea', backref='word_item', lazy='dynamic', cascade='all, delete-orphan')
 
 
 class WordCategory(db.Model):
@@ -362,15 +374,57 @@ def word_detail(word):
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/stats')
 def stats():
     try:
         total = Word.query.count()
+        total_categories = db.session.query(WordCategory.category).distinct().count()
+
+        top_cats = []
+        for cat in db.session.query(WordCategory.category).distinct().limit(5):
+            count = WordCategory.query.filter_by(category=cat[0]).count()
+            top_cats.append({'name': cat[0], 'count': count})
+
         return jsonify({
-            'total_words': total
+            'total_words': total,
+            'total_categories': total_categories,
+            'top_categories': top_cats
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/search')
+def api_search():
+    query = request.args.get('q', '').lower().strip()
+    suggestions = []
+    if query and len(query) >= 2:
+        try:
+            words = Word.query.filter(Word.word.ilike(f'%{query}%')).limit(10).all()
+            suggestions = [word.word for word in words]
+        except Exception:
+            pass
+    return jsonify(suggestions)
+
+
+@app.route('/api/random-word')
+def random_word():
+    import random
+    try:
+        words = Word.query.all()
+        if words:
+            word = random.choice(words)
+            return jsonify({
+                'word': word.word,
+                'definition': word.definition[:200] + '...' if len(word.definition) > 200 else word.definition,
+                'categories': [cat.category for cat in word.categories],
+                'image_url': word.image_url
+            })
+    except Exception:
+        pass
+    return jsonify({'word': None})
 
 
 # ========== СТРАНИЦА КАТЕГОРИЙ ==========
@@ -469,6 +523,7 @@ def admin_login():
             return render_template('admin/login.html', error='Неверный логин или пароль')
     return render_template('admin/login.html')
 
+
 @app.route('/admin/dashboard')
 @login_required
 def admin_dashboard():
@@ -480,6 +535,8 @@ def admin_dashboard():
                            words_count=words_count,
                            total_categories=total_categories,
                            recent_words=recent_words)
+
+
 @app.route('/admin/logout')
 @login_required
 def admin_logout():
