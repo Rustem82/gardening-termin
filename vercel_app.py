@@ -507,12 +507,13 @@ def admin_login():
 @app.route('/admin/dashboard')
 @login_required
 def admin_dashboard():
-    return jsonify({
-        'status': 'ok',
-        'message': 'Добро пожаловать в админ-панель!',
-        'words_count': Word.query.count()
-    })
-
+    words_count = Word.query.count()
+    total_categories = db.session.query(WordCategory.category).distinct().count()
+    recent_words = Word.query.order_by(Word.created_at.desc()).limit(10).all()
+    return render_template('admin/dashboard.html',
+                          words_count=words_count,
+                          total_categories=total_categories,
+                          recent_words=recent_words)
 
 @app.route('/admin/logout')
 @login_required
