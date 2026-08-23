@@ -136,37 +136,75 @@ def search():
 
     return render_template('search.html', query=query, results=results)
 
-@app.route('/word/<word>')
+def _normalize_term(value):
+    """Normalize URL/database term text without changing the stored spelling."""
+    import unicodedata
+    from urllib.parse import unquote
+
+    value = unquote(str(value or ''))
+    value = unicodedata.normalize('NFKC', value)
+    value = value.replace('’', "'").replace('‘', "'").replace('ʻ', "'").replace('ʼ', "'").replace('`', "'")
+    return ' '.join(value.split()).strip().casefold()
+
+
+def _find_word_by_url_term(value):
+    """Find a term robustly: spaces, URL encoding, case and apostrophe variants are tolerated."""
+    from sqlalchemy import func
+    from urllib.parse import unquote
+
+    decoded = ' '.join(unquote(str(value or '')).split()).strip()
+    if not decoded:
+        return None
+
+    # Fast path for PostgreSQL/SQLite.
+    item = Word.query.filter(
+        func.lower(func.trim(Word.word)) == decoded.lower()
+    ).first()
+    if item:
+        return item
+
+    # Unicode/apostrophe-safe fallback. 1100 rows is small enough for this fallback.
+    target = _normalize_term(decoded)
+    for item in Word.query.filter(~Word.word.startswith('_category_placeholder_')).all():
+        if _normalize_term(item.word) == target:
+            return item
+    return None
+
+
+@app.route('/word/<path:word>')
 def word_detail(word):
     try:
-        db_word = Word.query.filter(Word.word.ilike(word)).first()
-        if db_word:
-            data = {
-                'определение': db_word.definition,  # definition_uz
-                'translation_en': db_word.translation_en,  # english
-                'definition_en': db_word.definition_en,
-                'example_uz': db_word.example_uz,
-                'example_en': db_word.example_en,
-                'pronunciation': db_word.pronunciation,
-                'part_of_speech_en': db_word.part_of_speech_en,
-                'etymology_en': db_word.etymology_en,
-                'image_url': db_word.image_url,
-                'turkumi': [cat.category for cat in db_word.categories],
-                'синонимы': [syn.related_word for syn in db_word.synonyms],
-                'антонимы': [ant.related_word for ant in db_word.antonyms],
-                'гиперонимы': [hyp.related_word for hyp in db_word.hyperonyms],
-                'гипонимы': [hypo.related_word for hypo in db_word.hyponyms],
-                'xolonim': [hol.related_word for hol in db_word.holonyms],
-                'meronim': [mer.related_word for mer in db_word.meronyms],
-                'omonim': [hom.related_word for hom in db_word.homonyms],
-                'paronim': [par.related_word for par in db_word.paronyms],
-                'qollanilishi': [area.area for area in db_word.usage_areas],
-                'etimologiyasi': [db_word.etymology] if db_word.etymology else []
-            }
-            return render_template('word_detail.html', word=db_word.word, data=data)
-    except Exception:
-        pass
-    return render_template('404.html'), 404
+        db_word = _find_word_by_url_term(word)
+        if not db_word:
+            return render_template('404.html', word_query=word, suggestions=[]), 404
+
+        data = {
+            'определение': db_word.definition,
+            'translation_en': db_word.translation_en,
+            'definition_en': db_word.definition_en,
+            'example_uz': db_word.example_uz,
+            'example_en': db_word.example_en,
+            'pronunciation': db_word.pronunciation,
+            'part_of_speech_en': db_word.part_of_speech_en,
+            'etymology_en': db_word.etymology_en,
+            'image_url': db_word.image_url,
+            'turkumi': [cat.category for cat in db_word.categories],
+            'синонимы': [syn.related_word for syn in db_word.synonyms],
+            'антонимы': [ant.related_word for ant in db_word.antonyms],
+            'гиперонимы': [hyp.related_word for hyp in db_word.hyperonyms],
+            'гипонимы': [hypo.related_word for hypo in db_word.hyponyms],
+            'xolonim': [hol.related_word for hol in db_word.holonyms],
+            'meronim': [mer.related_word for mer in db_word.meronyms],
+            'omonim': [hom.related_word for hom in db_word.homonyms],
+            'paronim': [par.related_word for par in db_word.paronyms],
+            'qollanilishi': [area.area for area in db_word.usage_areas],
+            'etimologiyasi': [db_word.etymology] if db_word.etymology else []
+        }
+        return render_template('word_detail.html', word=db_word.word, data=data)
+    except Exception as exc:
+        db.session.rollback()
+        app.logger.exception('word_detail failed for %r: %s', word, exc)
+        return render_template('500.html'), 500
 
 
 @app.route('/categories')
@@ -806,4 +844,4 @@ def numberformat_filter(value):
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='127.0.0.1', port=5000, debug=True, use_reloader=False)
