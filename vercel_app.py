@@ -1,4 +1,4 @@
-# vercel_app.py - РАБОЧАЯ ВЕРСИЯ (ЛОКАЛЬНО + VERCEL)
+# vercel_app.py - ИСПРАВЛЕННАЯ ВЕРСИЯ СО ВСЕМИ СВЯЗЯМИ
 import sys
 import os
 
@@ -11,6 +11,8 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 import json
+import re
+import requests
 
 # Создаем приложение
 app = Flask(__name__)
@@ -18,16 +20,39 @@ app = Flask(__name__)
 # Настройки
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or 'your-secret-key-change-this'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['INSTANCE_FOLDER'] = '/tmp'
 
-# ====== ПУТЬ К БАЗЕ ДАННЫХ ======
-# На Vercel используем /tmp, локально - папку проекта
-if os.environ.get('VERCEL') or os.path.exists('/tmp'):
-    DB_PATH = '/tmp/thesaurus_data.db'
-else:
-    DB_PATH = os.path.join(os.path.dirname(__file__), 'thesaurus_data.db')
+# Путь к БД в /tmp (единственная записываемая папка на Vercel)
+DB_PATH = '/tmp/thesaurus_data.db'
+
+# Если БД нет в /tmp, скачиваем из Storage
+if not os.path.exists(DB_PATH):
+    try:
+        BLOB_URL = "https://store_W6SAmavz4a8tGG7Q.blob.vercel-storage.com/thesaurus_data.db"
+        print("📥 Скачивание БД из Storage...")
+        response = requests.get(BLOB_URL, timeout=30)
+        if response.status_code == 200:
+            with open(DB_PATH, 'wb') as f:
+                f.write(response.content)
+            print("✅ БД загружена из Storage")
+        else:
+            print(f"❌ Не удалось загрузить БД: {response.status_code}")
+            local_db = os.path.join(os.path.dirname(__file__), 'thesaurus_data.db')
+            if os.path.exists(local_db):
+                import shutil
+
+                shutil.copy2(local_db, DB_PATH)
+                print("✅ Использована локальная БД")
+    except Exception as e:
+        print(f"⚠️ Ошибка загрузки БД: {e}")
+        local_db = os.path.join(os.path.dirname(__file__), 'thesaurus_data.db')
+        if os.path.exists(local_db):
+            import shutil
+
+            shutil.copy2(local_db, DB_PATH)
+            print("✅ Использована локальная БД")
 
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DB_PATH}'
-print(f"📁 База данных: {DB_PATH}")
 
 db = SQLAlchemy(app)
 
@@ -37,7 +62,7 @@ login_manager.init_app(app)
 login_manager.login_view = 'admin_login'
 
 
-# ========== МОДЕЛИ ==========
+# ========== МОДЕЛИ (СО ВСЕМИ СВЯЗЯМИ) ==========
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -61,7 +86,7 @@ class Word(db.Model):
     image_url = db.Column(db.String(500))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # Связи
+    # ====== СВЯЗИ (ОБЯЗАТЕЛЬНО ДЛЯ РАБОТЫ) ======
     categories = db.relationship('WordCategory', backref='word_item', lazy='dynamic', cascade='all, delete-orphan')
     synonyms = db.relationship('WordSynonym', backref='word_item', lazy='dynamic', cascade='all, delete-orphan')
     antonyms = db.relationship('WordAntonym', backref='word_item', lazy='dynamic', cascade='all, delete-orphan')
@@ -141,42 +166,69 @@ def load_user(user_id):
 
 # ========== ИНИЦИАЛИЗАЦИЯ БД ==========
 def init_db():
-    """Создает базу данных и добавляет тестовые данные"""
+    """Создает базу данных и импортирует данные при первом запуске"""
     with app.app_context():
         db.create_all()
-        print("✅ Таблицы созданы")
 
-        # Создаем админа
-        if not User.query.filter_by(username='admin').first():
-            admin = User(
-                username='admin',
-                password_hash=generate_password_hash('admin123'),
-                is_admin=True
-            )
-            db.session.add(admin)
-            db.session.commit()
-            print("✅ Админ создан")
-
-        # Добавляем тестовые слова, если их нет
         if Word.query.count() == 0:
-            print("📝 Добавление тестовых слов...")
+            print("📁 Инициализация базы данных...")
 
-            test_words = [
-                {"word": "tuproq", "definition": "Yer po'stining yuza unumdor qatlami", "category": "ot"},
-                {"word": "suv", "definition": "Rangsiz, hidsiz suyuqlik", "category": "ot"},
-                {"word": "o'simlik", "definition": "Organizm, odatda tuproqda o'sadi", "category": "ot"},
-                {"word": "hosil", "definition": "Ekinlardan olingan mahsulot", "category": "ot"},
-                {"word": "yer", "definition": "Yer sayyorasining yuzasi", "category": "ot"},
-            ]
+            if not User.query.filter_by(username='admin').first():
+                admin = User(
+                    username='admin',
+                    password_hash=generate_password_hash('admin123'),
+                    is_admin=True
+                )
+                db.session.add(admin)
+                db.session.commit()
+                print("✅ Админ создан")
 
-            for item in test_words:
-                word = Word(word=item['word'], definition=item['definition'])
-                db.session.add(word)
-                db.session.flush()
-                db.session.add(WordCategory(word_id=word.id, category=item['category']))
+            json_path = os.path.join(os.path.dirname(__file__), 'yangi.json')
+            if os.path.exists(json_path):
+                try:
+                    with open(json_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
 
-            db.session.commit()
-            print(f"✅ Добавлено {len(test_words)} тестовых слов")
+                    imported = 0
+                    for item in data:
+                        word_text = item.get('uzbek', '')
+                        if not word_text:
+                            continue
+
+                        if Word.query.filter(Word.word.ilike(word_text)).first():
+                            continue
+
+                        word = Word(
+                            word=word_text,
+                            definition=item.get('Izohi', '') or item.get('definition_uz', '') or "Ta'rif mavjud emas",
+                            etymology=item.get('Etimologiyasi', '') or item.get('etymology_uz', ''),
+                            translation_en=item.get('Tarjimasi (ingliz tili)', '') or item.get('english', '')
+                        )
+                        db.session.add(word)
+                        db.session.flush()
+
+                        turkum = item.get('turkumi', '') or item.get('part_of_speech_uz', '')
+                        if turkum:
+                            for cat in str(turkum).split(','):
+                                cat = cat.strip()
+                                if cat:
+                                    db.session.add(WordCategory(word_id=word.id, category=cat))
+
+                        imported += 1
+
+                        if imported % 50 == 0:
+                            db.session.commit()
+                            print(f'✅ Добавлено {imported} слов...')
+
+                    db.session.commit()
+                    print(f"✅ Импортировано {imported} слов")
+
+                except Exception as e:
+                    print(f"⚠️ Ошибка импорта: {e}")
+            else:
+                print("⚠️ Файл yangi.json не найден")
+
+            print("✅ Инициализация завершена")
 
 
 # ========== ОСНОВНЫЕ РОУТЫ ==========
@@ -184,29 +236,79 @@ def init_db():
 @app.route('/')
 def index():
     try:
+        words_count = Word.query.count()
+
+        # Алфавит для отображения
         alphabet = ['A', 'B', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
                     'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'X', 'Y', 'Z',
                     "O'", "G'", 'SH', 'CH', 'NG']
 
+        # Получаем букву из URL (?letter=A)
         letter = request.args.get('letter', '').upper()
         words = []
         selected_letter = None
 
+        # Если выбрана буква - ищем слова
         if letter and letter in alphabet:
             selected_letter = letter
-            words = Word.query.filter(Word.word.startswith(letter)).order_by(Word.word).limit(50).all()
+            words = Word.query.filter(Word.word.startswith(letter)).limit(50).all()
 
-        popular_words = [w.word for w in Word.query.order_by(Word.word).limit(5).all()]
-        if not popular_words:
-            popular_words = ['tuproq', 'suv', "o'simlik", 'hosil', 'yer']
+        # Популярные слова (первые 5)
+        popular_words = [w.word for w in Word.query.limit(5).all()]
 
         return render_template('index.html',
+                               words_count=words_count,
                                alphabet=alphabet,
                                popular_words=popular_words,
                                selected_letter=selected_letter,
                                words=words)
     except Exception as e:
-        return f"Error: {e}", 500
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/health')
+def health():
+    return jsonify({'status': 'healthy'})
+
+
+@app.route('/debug')
+def debug():
+    try:
+        files = os.listdir('/tmp')
+        return jsonify({
+            'files': files[:20],
+            'cwd': os.getcwd(),
+            'words_count': Word.query.count(),
+            'db_exists': os.path.exists('/tmp/thesaurus_data.db')
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/search')
+def search():
+    query = request.args.get('q', '').strip()
+    results = []
+
+    if query:
+        try:
+            words = Word.query.filter(
+                Word.word.ilike(f'%{query.lower()}%')
+            ).limit(20).all()
+
+            for word in words:
+                results.append({
+                    'word': word.word,
+                    'definition': word.definition,
+                    'image_url': word.image_url
+                })
+        except Exception as e:
+            print(f"Search error: {e}")
+
+    try:
+        return render_template('search.html', query=query, results=results)
+    except:
+        return jsonify({'query': query, 'results': results})
 
 
 @app.route('/word/<word>')
@@ -221,16 +323,24 @@ def word_detail(word):
 
         db_word = Word.query.filter(Word.word.ilike(word_clean)).first()
 
+        if not db_word:
+            variants = []
+            for ch in ['‘', '’', "'", '`']:
+                variants.append(word_clean.replace('‘', ch).replace('’', ch))
+            for variant in variants:
+                db_word = Word.query.filter(Word.word.ilike(variant)).first()
+                if db_word:
+                    break
+
+        if not db_word:
+            first_part = word_clean.split()[0] if ' ' in word_clean else word_clean
+            if len(first_part) > 3:
+                db_word = Word.query.filter(Word.word.ilike(f'{first_part}%')).first()
+
         if db_word:
             data = {
                 'определение': db_word.definition,
                 'translation_en': db_word.translation_en,
-                'definition_en': db_word.definition_en,
-                'example_uz': db_word.example_uz,
-                'example_en': db_word.example_en,
-                'pronunciation': db_word.pronunciation,
-                'part_of_speech_en': db_word.part_of_speech_en,
-                'etymology_en': db_word.etymology_en,
                 'image_url': db_word.image_url,
                 'turkumi': [cat.category for cat in db_word.categories],
                 'синонимы': [syn.related_word for syn in db_word.synonyms],
@@ -244,44 +354,26 @@ def word_detail(word):
                 'qollanilishi': [area.area for area in db_word.usage_areas],
                 'etimologiyasi': [db_word.etymology] if db_word.etymology else []
             }
-            return render_template('word_detail.html', word=db_word.word, data=data)
+            try:
+                return render_template('word_detail.html', word=db_word.word, data=data)
+            except Exception as e:
+                print(f"Template error: {e}")
+                return jsonify({'word': db_word.word, 'data': data})
 
-        return render_template('404.html', suggestions=[], word_query=word_clean), 404
+        similar = Word.query.filter(Word.word.ilike(f'%{word_clean[:5]}%')).limit(5).all()
+        if similar:
+            return jsonify({
+                'error': 'Word not found',
+                'similar': [w.word for w in similar]
+            }), 404
+
+        return jsonify({'error': 'Word not found'}), 404
+
     except Exception as e:
-        return f"Error: {e}", 500
-
-
-@app.route('/search')
-def search():
-    query = request.args.get('q', '').strip()
-    results = []
-    if query:
-        try:
-            words = Word.query.filter(Word.word.ilike(f'%{query}%')).limit(20).all()
-            for word in words:
-                results.append({
-                    'word': word.word,
-                    'definition': word.definition,
-                    'image_url': word.image_url
-                })
-        except Exception:
-            pass
-    return render_template('search.html', query=query, results=results)
-
-
-@app.route('/categories')
-def categories():
-    try:
-        cats = db.session.query(WordCategory.category).distinct().all()
-        categories = [cat[0] for cat in cats]
-        return render_template('categories.html', categories=categories)
-    except Exception:
-        return render_template('categories.html', categories=[])
-
-
-@app.route('/about')
-def about():
-    return render_template('about.html')
+        print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/stats')
@@ -289,10 +381,12 @@ def stats():
     try:
         total = Word.query.count()
         total_categories = db.session.query(WordCategory.category).distinct().count()
+
         top_cats = []
         for cat in db.session.query(WordCategory.category).distinct().limit(5):
             count = WordCategory.query.filter_by(category=cat[0]).count()
             top_cats.append({'name': cat[0], 'count': count})
+
         return jsonify({
             'total_words': total,
             'total_categories': total_categories,
@@ -333,27 +427,85 @@ def random_word():
     return jsonify({'word': None})
 
 
-@app.route('/health')
-def health():
-    return jsonify({'status': 'healthy', 'words': Word.query.count()})
+# ========== СТРАНИЦА КАТЕГОРИЙ ==========
 
-
-@app.route('/debug')
-def debug():
+@app.route('/categories')
+def categories():
     try:
-        return jsonify({
-            'status': 'ok',
-            'words_count': Word.query.count(),
-            'db_path': DB_PATH,
-            'db_exists': os.path.exists(DB_PATH)
-        })
+        cats = db.session.query(WordCategory.category).distinct().all()
+        categories = [cat[0] for cat in cats if cat[0]]
+        return render_template('categories.html', categories=categories)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/favicon.ico')
-def favicon():
-    return '', 204
+# ========== СТРАНИЦА ПОЛЕЙ ==========
+
+@app.route('/fields')
+def fields_list():
+    fields = [
+        {"name": "Agronomiya", "en": "Agronomy"},
+        {"name": "Agrobiologik asoslar", "en": "Agrobiological Foundations"},
+        {"name": "Bog'dorchilik", "en": "Horticulture"},
+        {"name": "Ko'chatchilik", "en": "Nursery Science"},
+        {"name": "Manzarali bog'dorchilik", "en": "Ornamental Horticulture"},
+        {"name": "Mevachilik", "en": "Pomology"},
+        {"name": "Seleksiya va genetika", "en": "Plant Breeding and Genetics"},
+        {"name": "O'simliklarni himoya qilish", "en": "Plant Protection"},
+        {"name": "Sabzavotchilik", "en": "Olericulture"},
+        {"name": "Uzumchilik", "en": "Viticulture"}
+    ]
+    try:
+        return render_template('fields.html', fields=fields)
+    except:
+        return jsonify({'fields': fields})
+
+
+@app.route('/field/<field_name>')
+def field_page(field_name):
+    try:
+        words = Word.query.filter(
+            Word.usage_areas.any(WordUsageArea.area.ilike(f'%{field_name}%'))
+        ).limit(50).all()
+        return render_template('field_page.html', field_name=field_name, words=words)
+    except:
+        return jsonify({'field': field_name, 'words': []})
+
+
+# ========== СТРАНИЦА О ПРОЕКТЕ ==========
+
+@app.route('/about')
+def about():
+    try:
+        return render_template('about.html')
+    except:
+        return jsonify({'message': 'Страница о проекте'})
+
+
+# ========== СТАТИСТИКА ==========
+
+@app.route('/stats/agriculture')
+def agriculture_stats():
+    try:
+        total_words = Word.query.count()
+        total_categories = db.session.query(WordCategory.category).distinct().count()
+
+        # Статистика по категориям
+        category_stats = []
+        cats = db.session.query(WordCategory.category).distinct().all()
+        for cat in cats:
+            count = WordCategory.query.filter_by(category=cat[0]).count()
+            category_stats.append({
+                'name': cat[0],
+                'count': count,
+                'percentage': round(count / total_words * 100, 1) if total_words > 0 else 0
+            })
+
+        return render_template('agriculture_stats.html',
+                               stats={'total_words': total_words, 'category_stats': category_stats},
+                               active_tab='general')
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 # ========== АДМИН-ПАНЕЛЬ ==========
@@ -367,7 +519,8 @@ def admin_login():
         if user and check_password_hash(user.password_hash, password):
             login_user(user)
             return redirect(url_for('admin_dashboard'))
-        return render_template('admin/login.html', error='Неверный логин или пароль')
+        else:
+            return render_template('admin/login.html', error='Неверный логин или пароль')
     return render_template('admin/login.html')
 
 
@@ -377,6 +530,7 @@ def admin_dashboard():
     words_count = Word.query.count()
     total_categories = db.session.query(WordCategory.category).distinct().count()
     recent_words = Word.query.order_by(Word.created_at.desc()).limit(10).all()
+
     return render_template('admin/dashboard.html',
                            words_count=words_count,
                            total_categories=total_categories,
@@ -390,12 +544,9 @@ def admin_logout():
     return redirect(url_for('admin_login'))
 
 
-# ========== ИНИЦИАЛИЗАЦИЯ ==========
+# ========== ИНИЦИАЛИЗАЦИЯ ПРИ ЗАПУСКЕ ==========
 with app.app_context():
     init_db()
 
 # Экспортируем для Vercel
 application = app
-
-if __name__ == '__main__':
-    app.run(debug=True)
