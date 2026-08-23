@@ -1,4 +1,4 @@
-# vercel_app.py - полная версия с вашим приложением
+# vercel_app.py - исправленная версия
 import sys
 import os
 
@@ -17,10 +17,11 @@ import re
 # Создаем приложение
 app = Flask(__name__)
 
-# Настройки прямо здесь (без импорта config)
+# Настройки - используем /tmp для БД (единственная записываемая папка на Vercel)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or 'your-secret-key-change-this'
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL') or 'sqlite:///thesaurus_data.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/thesaurus_data.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['INSTANCE_FOLDER'] = '/tmp'
 
 db = SQLAlchemy(app)
 
@@ -51,9 +52,8 @@ class Word(db.Model):
     pronunciation = db.Column(db.String(100))
     part_of_speech_en = db.Column(db.String(50))
     etymology_en = db.Column(db.Text)
-    image_url = db.Column(db.String(300))
+    image_url = db.Column(db.String(500))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class WordCategory(db.Model):
@@ -116,22 +116,6 @@ class WordUsageArea(db.Model):
     area = db.Column(db.String(100), nullable=False, index=True)
 
 
-class Visit(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    ip_address = db.Column(db.String(50))
-    user_agent = db.Column(db.String(200))
-    visited_at = db.Column(db.DateTime, default=datetime.utcnow)
-    page = db.Column(db.String(100))
-
-
-class UserVisit(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    ip_address = db.Column(db.String(50), unique=True)
-    first_visit = db.Column(db.DateTime, default=datetime.utcnow)
-    last_visit = db.Column(db.DateTime, default=datetime.utcnow)
-    visit_count = db.Column(db.Integer, default=1)
-
-
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
@@ -166,7 +150,7 @@ def init_db():
                         data = json.load(f)
 
                     imported = 0
-                    for item in data:
+                    for item in data[:100]:  # Для теста первые 100 слов
                         word_text = item.get('uzbek', '')
                         if not word_text:
                             continue
@@ -183,7 +167,6 @@ def init_db():
                         db.session.add(word)
                         db.session.flush()
 
-                        # Добавляем категории
                         turkum = item.get('turkumi', '') or item.get('part_of_speech_uz', '')
                         if turkum:
                             for cat in str(turkum).split(','):
@@ -230,29 +213,33 @@ def health():
 @app.route('/debug')
 def debug():
     try:
-        files = os.listdir('.')
+        files = os.listdir('/tmp')
         return jsonify({
             'files': files[:20],
             'cwd': os.getcwd(),
             'words_count': Word.query.count(),
-            'db_exists': os.path.exists('thesaurus_data.db')
+            'db_exists': os.path.exists('/tmp/thesaurus_data.db')
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/stats')
-def stats():
+@app.route('/word/<word>')
+def word_detail(word):
     try:
-        total_words = Word.query.filter(Word.word.notlike('_category_placeholder_%')).count()
-        total_categories = db.session.query(WordCategory.category).distinct().count()
-
-        return jsonify({
-            'total_words': total_words,
-            'total_categories': total_categories
-        })
+        db_word = Word.query.filter(Word.word.ilike(word)).first()
+        if db_word:
+            data = {
+                'определение': db_word.definition,
+                'translation_en': db_word.translation_en,
+                'image_url': db_word.image_url,
+                'turkumi': [cat.category for cat in db_word.categories],
+                'синонимы': [syn.related_word for syn in db_word.synonyms]
+            }
+            return render_template('word_detail.html', word=db_word.word, data=data)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"Error: {e}")
+    return jsonify({'error': 'Word not found'}), 404
 
 
 # ========== ИНИЦИАЛИЗАЦИЯ ПРИ ЗАПУСКЕ ==========
