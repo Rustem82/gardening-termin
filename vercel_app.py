@@ -362,6 +362,25 @@ def about():
         return jsonify({'message': 'Страница о проекте'})
 
 
+# ========== СТАТИСТИКА ==========
+
+@app.route('/stats/agriculture')
+def agriculture_stats():
+    try:
+        # Простая статистика
+        total_words = Word.query.count()
+        total_categories = db.session.query(WordCategory.category).distinct().count()
+        total_synonyms = WordSynonym.query.count()
+
+        return jsonify({
+            'total_words': total_words,
+            'total_categories': total_categories,
+            'total_synonyms': total_synonyms,
+            'message': 'Страница статистики в разработке'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # ========== АДМИН-ПАНЕЛЬ ==========
 
 @app.route('/admin/login', methods=['GET', 'POST'])
