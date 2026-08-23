@@ -462,47 +462,13 @@ def admin_login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-
         user = User.query.filter_by(username=username).first()
         if user and check_password_hash(user.password_hash, password):
             login_user(user)
             return redirect(url_for('admin_dashboard'))
         else:
-            return '''
-            <!DOCTYPE html>
-            <html>
-            <head><title>Админ-панель</title></head>
-            <body style="font-family: Arial; display: flex; justify-content: center; padding-top: 50px;">
-                <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.1); width: 300px;">
-                    <h2>🔐 Админ-панель</h2>
-                    <p style="color: red;">Неверный логин или пароль</p>
-                    <form method="POST">
-                        <input type="text" name="username" placeholder="Логин" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px;"><br>
-                        <input type="password" name="password" placeholder="Пароль" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px;"><br>
-                        <button type="submit" style="width: 100%; padding: 10px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">Войти</button>
-                    </form>
-                </div>
-            </body>
-            </html>
-            '''
-
-    return '''
-    <!DOCTYPE html>
-    <html>
-    <head><title>Админ-панель</title></head>
-    <body style="font-family: Arial; display: flex; justify-content: center; padding-top: 50px;">
-        <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.1); width: 300px;">
-            <h2>🔐 Админ-панель</h2>
-            <form method="POST">
-                <input type="text" name="username" placeholder="Логин" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px;"><br>
-                <input type="password" name="password" placeholder="Пароль" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px;"><br>
-                <button type="submit" style="width: 100%; padding: 10px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">Войти</button>
-            </form>
-        </div>
-    </body>
-    </html>
-    '''
-
+            return render_template('admin/login.html', error='Неверный логин или пароль')
+    return render_template('admin/login.html')
 
 @app.route('/admin/dashboard')
 @login_required
@@ -510,11 +476,11 @@ def admin_dashboard():
     words_count = Word.query.count()
     total_categories = db.session.query(WordCategory.category).distinct().count()
     recent_words = Word.query.order_by(Word.created_at.desc()).limit(10).all()
-    return render_template('admin/dashboard.html',
-                          words_count=words_count,
-                          total_categories=total_categories,
-                          recent_words=recent_words)
 
+    return render_template('admin/dashboard.html',
+                           words_count=words_count,
+                           total_categories=total_categories,
+                           recent_words=recent_words)
 @app.route('/admin/logout')
 @login_required
 def admin_logout():
