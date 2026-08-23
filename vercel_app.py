@@ -535,7 +535,7 @@ def admin_login():
 def admin_dashboard():
     words_count = Word.query.count()
     total_categories = db.session.query(WordCategory.category).distinct().count()
-    recent_words = Word.query.order_by(Word.created_at.desc()).limit(10).all()
+    recent_words = Word.query.limit(10).all()  # Без сортировки
 
     return render_template('admin/dashboard.html',
                            words_count=words_count,
