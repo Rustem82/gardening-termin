@@ -233,15 +233,43 @@ def fields_list():
     ]
     return render_template('fields.html', fields=fields)
 
-@app.route('/field/<field_name>')
+@app.route('/field/<path:field_name>')
 def field_page(field_name):
-    # Ищем слова, у которых область применения совпадает с введённой
-    words = Word.query.filter(
-        Word.usage_areas.any(WordUsageArea.area.ilike(f'%{field_name}%')),
-        ~Word.word.startswith('_category_placeholder_')
-    ).order_by(Word.word).all()
+    # Vercel/браузер иногда может передать уже URL-кодированное значение
+    # повторно (например Agrobiologik%20asoslar). Декодируем до 3 раз,
+    # пока строка не перестанет меняться.
+    decoded_name = field_name
+    for _ in range(3):
+        new_value = unquote(decoded_name)
+        if new_value == decoded_name:
+            break
+        decoded_name = new_value
 
-    return render_template('field_page.html', field_name=field_name, words=words)
+    decoded_name = decoded_name.replace('+', ' ')
+    decoded_name = ' '.join(decoded_name.split()).strip()
+
+    # Поддерживаем разные варианты узбекского апострофа.
+    variants = {
+        decoded_name,
+        decoded_name.replace('‘', "'").replace('’', "'").replace('ʻ', "'").replace('ʼ', "'"),
+        decoded_name.replace("'", '‘'),
+        decoded_name.replace("'", '’'),
+        decoded_name.replace("'", 'ʻ'),
+    }
+    variants = {v for v in variants if v}
+
+    filters = [Word.usage_areas.any(WordUsageArea.area.ilike(f'%{v}%')) for v in variants]
+
+    words = Word.query.filter(
+        db.or_(*filters),
+        ~Word.word.startswith('_category_placeholder_')
+    ).order_by(Word.word).all() if filters else []
+
+    return render_template(
+        'field_page.html',
+        field_name=decoded_name,
+        words=words
+    )
 
 
 @app.route('/about')
