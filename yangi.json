@@ -1309,7 +1309,7 @@
     "synonyms_en": "-"
   },
   {
-    "uzbek": "Assimilatsion va suruvchi yuzalarning ko‘payish (o‘sish) fazasi",
+    "uzbek": "Assimilatsion va so‘ruvchi yuzalarning ko‘payish (o‘sish) fazasi",
     "part_of_speech_uz": "ot (birikma)",
     "definition_uz": "O‘simlik rivojlanishida barglar (assimilatsion yuza) hamda ildizlarning suv va mineral moddalarni o‘zlashtiruvchi qismi (suruvchi yuza) faol ravishda shakllanib, kengayadigan rivojlanish davri. Bu fazada fotosintez intensivligi, oziqa moddalarni o‘zlashtirish va o‘simlikning vegetativ o‘sishi kuchayadi.",
     "etymology_uz": "-",
@@ -2554,7 +2554,7 @@
     "part_of_speech_uz": "ot",
     "definition_uz": "Adoksadoshlar (Adoxaceae) oilasiga (ilgari shilvidoshlar — Caprifoliaceae) mansub, bo‘yi 1,5–3 m gacha yetadigan barg to‘kuvchi manzarali buta. Bahor oxiri–yoz boshida oq rangli qalqonsimon to‘pgullar hosil qiladi. Mevasi qizil rangli, sharsimon danaksiz soxta meva bo‘lib, kuzda pishadi. Bodrezak asosan bog‘ va xiyobonlarni bezash uchun yetishtiriladi, ayrim turlari dorivor ahamiyatga ega.",
     "etymology_uz": "-",
-    "example_uz": "Bodrezak, kalina (Viburnum) — shilvidoshlar oilasiga mansub daraxt yoki buta.” (Qomus.info)",
+    "example_uz": "Bodrezak, kalina (Viburnum) — shilvidoshlar oilasiga mansub daraxt yoki buta. (Qomus.info)",
     "field_uz": "Manzarali bog‘dorchilik → Landshaft bog‘dorchiligi",
     "synonyms_uz": "Kalina; Oddiy bodrezak",
     "english": "Guelder rose (Viburnum opulus L.)",
@@ -3243,7 +3243,7 @@
     "definition_en": "A specialized botanical garden or living collection devoted to the cultivation, study, conservation, and display of trees and shrubs. Arboreta maintain native and introduced woody plants and are used for scientific research, education, plant introduction, conservation, and landscape purposes.",
     "etymology_en": "Arboretum comes from New Latin arboretum, meaning “a place planted with trees”, derived from Latin arbor (“tree”) + the suffix -etum, denoting a plantation or garden.",
     "example_en": "“The establishment of the experimental arboretum in the late nineteenth century allowed researchers to evaluate how non-native coniferous trees would adapt to local soil conditions before widespread forestation began.” (Annals of Forest Science, 2021)",
-    "field_en": "Ornamental Horticulture → Landscape Horticulture",
+    "field_en": "Agrobiological Foundations → Botany",
     "synonyms_en": "-"
   },
   {
@@ -3395,7 +3395,7 @@
     "pronunciation": "ˈɡreɪp.vaɪn ænˈθræk.nəʊs",
     "definition_en": "A fungal disease of grapevines (Vitis spp.) caused by Elsinoë ampelina. It affects young leaves, shoots, petioles, tendrils, inflorescences, and berries, producing brown to dark, often sunken necrotic lesions that may develop grayish or whitish centers with dark margins. Severe infection may cause premature defoliation, berry damage, reduced vine vigor, and yield loss.",
     "etymology_en": "From grapevine + anthracnose; anthracnose derives from Greek anthrax (“coal”) + nosos (“disease”).",
-    "example_en": "E. ampelina infects young and tender tissues of grapevine, including leaves, petioles, stems, tendrils, rachises, and berries.” (Current status and future prospects of grapevine anthracnose caused by Elsinoe ampelina. Li et al., Molecular Plant Pathology, 2021)",
+    "example_en": "E. ampelina infects young and tender tissues of grapevine, including leaves, petioles, stems, tendrils, rachises, and berries. (Current status and future prospects of grapevine anthracnose caused by Elsinoe ampelina. Li et al., Molecular Plant Pathology, 2021)",
     "field_en": "Plant Protection → Plant Pathology",
     "synonyms_en": "-"
   },
@@ -4613,7 +4613,7 @@
     "etymology_uz": "Yunoncha glykys (“shirin”).",
     "example_uz": "Uzum tarkibida yaxshi o‘zlashtiriladigan shakar (glyukoza va fruktoza), organik kislotalar va boshqa moddalar bo‘lishi va tarkibiy qismlarining bir-biriga mos ravishda birikkanligi tufayli ular davolash xususiyatiga ega. (Bog‘dorchilik. Yunusov R. va boshq., 2016)",
     "field_uz": "Agrobiologik asoslar → O‘simliklar fiziologiyasi",
-    "synonyms_uz": " Dekstroza",
+    "synonyms_uz": "Dekstroza",
     "english": "Glucose",
     "part_of_speech_en": "noun",
     "pronunciation": "ˈɡluːkəʊs",
@@ -4621,10 +4621,10 @@
     "etymology_en": "Coined in French (glucose) by Jean-Baptiste Dumas in 1838, derived from Ancient Greek glykys (sweet) + chemical suffix -ose.",
     "example_en": "“The accumulation of glucose and fructose during the final swell of sweet cherry fruits determines the total soluble solids (TSS) and overall palatability.” (Plant Biochemistry. Heldt & Piechulla, 2021)",
     "field_en": "Agrobiological Foundations → Plant Physiology",
-    "synonyms_en": " D-glucose; Dextrose"
+    "synonyms_en": "D-glucose; Dextrose"
   },
   {
-    "uzbek": "Gommoz (Gummosis)",
+    "uzbek": "Gommoz",
     "part_of_speech_uz": "ot",
     "definition_uz": "Daraxt tanasi, shoxlari yoki boshqa zararlangan qismlaridan yopishqoq, shaffof, sarg‘ish yoki jigar rang yelim (gum) ajralib chiqishi bilan tavsiflanadigan patologik yoki fiziologik holat. Gommoz ayniqsa danakli mevali daraxtlarda, jumladan o‘rik, shaftoli, gilos, olcha va olxo‘rida ko‘p uchraydi. U mexanik jarohatlanish, sovuq va quyosh ta’siri, noqulay o‘sish sharoitlari, hasharotlar hamda turli kasalliklar natijasida yuzaga kelishi mumkin.",
     "etymology_uz": "Gommoz termini fransuzcha gommose so‘zi orqali shakllangan bo‘lib, uning asosi lotincha gummi va yunoncha kommi (“yelim, gum”) so‘zlariga borib taqaladi.",
@@ -5156,7 +5156,7 @@
     "definition_uz": "Mo‘l hosil beradigan, yuqori mahsuldorlik xususiyatiga ega bo‘lgan o‘simlik, nav, daraxt, tok yoki ekin. Bog‘dorchilikda hosildorlik o‘simlikning ma’lum maydon yoki bir tupdan olinadigan hosil miqdori bilan baholanadi.",
     "etymology_uz": "-",
     "example_uz": "Hosildor novdalar bargining hammasi meva kurtaklari yozilishidan oldin shakllanadi, vegetativ kurtaklarda esa kuzatilmaydi, hosildor va vegetativ novdalarning o‘sishi, gul kurtaklarining oldin-ketin hosil bo‘lishi va shakllanishi bir vaqtga to‘g‘ri keladi. (Bog‘dorchilik. R. Yunusov va boshq., 2016)",
-    "field_uz": "Agronomiya",
+    "field_uz": "Bog‘dorchilik",
     "synonyms_uz": "Serhosil",
     "english": "High-yielding",
     "part_of_speech_en": "adjective",
@@ -5164,7 +5164,7 @@
     "definition_en": "High-yielding describes a plant, cultivar, or crop capable of producing a large quantity of marketable produce under suitable growing conditions. In horticulture, the term refers to varieties with consistently high productivity.",
     "etymology_en": "-",
     "example_en": "\"Adopting high-yielding and drought-tolerant crop cultivars is essential for enhancing agricultural productivity under changing climate conditions.\" (Crop Protection. Matthews, 2018)",
-    "field_en": "Plant Breeding and Genetics → Cultivar Science",
+    "field_en": "Horticulture",
     "synonyms_en": "Productive"
   },
   {
@@ -6659,7 +6659,7 @@
     "pronunciation": "ˈbʌd.ɪŋ",
     "definition_en": "A vegetative propagation technique in which a single bud taken from one plant is inserted or attached to a rootstock so that their tissues unite and grow together. The bud is selected from a healthy mother plant of the desired cultivar. Some budding methods are performed when the bark separates readily from the wood.",
     "etymology_en": "-",
-    "example_en": "Budding is inserting a single bud from a desirable plant into an opening in the bark of a compatible rootstock.” (Propagating Fruit Trees by Budding. Carroll B., Oklahoma State University Extension, 2017)",
+    "example_en": "Budding is inserting a single bud from a desirable plant into an opening in the bark of a compatible rootstock. (Propagating Fruit Trees by Budding. Carroll B., Oklahoma State University Extension, 2017)",
     "field_en": "Nursery Science → Propagation Methods",
     "synonyms_en": "-"
   },
@@ -13511,7 +13511,7 @@
     "definition_en": "Not yet ripe; used of fruit or other produce that has not yet reached the stage of ripeness associated with its characteristic eating quality. An unripe fruit may not yet have developed the color, flavor, aroma, texture, and compositional characteristics associated with ripening.",
     "etymology_en": "-",
     "example_en": "Some fruits are, however, picked at a mature but unripe stage of development so as to allow them to withstand post-harvest handling conditions when shipped over long-distances. (The role of post-harvest management in assuring the quality and safety of horticultural produce. FAO)",
-    "field_en": "Pomology → Fruit Development and Ripening",
+    "field_en": "Pomology",
     "synonyms_en": "-"
   },
   {
@@ -14475,7 +14475,7 @@
     "field_uz": "Agrobiologik asoslar → Sug‘orish melioratsiyasi",
     "synonyms_uz": "-",
     "english": "Unconfined groundwater",
-    "part_of_speech_en": "noun phrase (uncountable)",
+    "part_of_speech_en": "noun phrase",
     "pronunciation": "ˌʌnkənˈfaɪnd ˈɡraʊndwɔːtə",
     "definition_en": "Groundwater in an aquifer that is not overlain by a confining layer and whose upper boundary is a freely fluctuating water table at atmospheric pressure. Its depth and salinity can affect the root zone, soil salinization, waterlogging, and the suitability of land for orchards.",
     "etymology_en": "Formed from unconfined, meaning ‘not enclosed or restricted’, and groundwater, meaning water occurring beneath the land surface.",
@@ -14811,7 +14811,7 @@
     "part_of_speech_uz": "ot (birikma)",
     "definition_uz": "Meva-sabzavot mahsulotlarini tarkibi odatiy havodan farq qiladigan gaz muhitida saqlash usuli. Odatda kislorod miqdorining kamayishi va karbonat angidrid miqdorining ko‘payishi mahsulotning nafas olishi, etilen hosil qilishi, pishishi va qarishini sekinlashtirib, saqlash muddatini uzaytiradi. Gazlarning xavfsiz nisbati mahsulot turi va naviga bog‘liq; kislorodning haddan tashqari kamayishi yoki karbonat angidridning ortishi anaerob nafas olish va fiziologik shikastlanishlarni keltirib chiqarishi mumkin.",
     "etymology_uz": "Modifikatsiya — lotincha «modificatio» so‘zidan olingan bo‘lib, «o‘zgartirish» ma’nosini bildiradi.",
-    "example_uz": " Modifikatsiyalangan gaz muhitida saqlash (MGM) — tarkibi havo tarkibidan farq qilgan muhitda. MGM boshqariladigan va boshqarilmaydigan bo‘lishi mumkin. (Qishloq xo‘jalik mahsulotlarini saqlash va dastlabki ishlash texnologiyasi. Saydalov F.M., 2022)",
+    "example_uz": "Modifikatsiyalangan gaz muhitida saqlash (MGM) — tarkibi havo tarkibidan farq qilgan muhitda. MGM boshqariladigan va boshqarilmaydigan bo‘lishi mumkin. (Qishloq xo‘jalik mahsulotlarini saqlash va dastlabki ishlash texnologiyasi. Saydalov F.M., 2022)",
     "field_uz": "Bog‘dorchilik → Hosildan keyingi texnologiyalar",
     "synonyms_uz": "-",
     "english": "Modified atmosphere storage (MAS)",
@@ -16277,7 +16277,7 @@
     "field_uz": "O‘simliklarni himoya qilish → Entomologiya",
     "synonyms_uz": "-",
     "english": "Acridid grasshoppers (Acrididae)",
-    "part_of_speech_en": "noun phrase (plural; taxonomic common name)",
+    "part_of_speech_en": "noun phrase (plural)",
     "pronunciation": "əˈkrɪdɪd ˈɡrɑːsˌhɒpəz",
     "definition_en": "Primarily plant-feeding orthopteran insects belonging to the family Acrididae, characterized by relatively short antennae and enlarged hind legs adapted for jumping. Some species undergo density-dependent phase changes and form migratory swarms; these swarm-forming species are known as locusts.",
     "etymology_en": "Acridid is derived from the family name Acrididae, which is based on the genus Acrida and ultimately related to Greek akris or akridos, meaning «grasshopper» or «locust».",
@@ -17327,7 +17327,7 @@
     "part_of_speech_uz": "ot",
     "definition_uz": "Toldoshlar (Salicaceae) oilasiga mansub, shox va ingichka novdalari pastga osilib o‘sadigan barg to‘kuvchi daraxt. Barglari uzun, tor va nashtarsimon, gullari kuchalasimon to‘pgullarda hosil bo‘ladi. Nam tuproqlarni xush ko‘rgani sababli hovuz, ariq va boshqa suv havzalari bo‘yida hamda bog‘-xiyobonlarda manzarali daraxt sifatida ekiladi.",
     "etymology_uz": "-",
-    "example_uz": "Majnuntol ko‘cha yoqalariga va suv havzalari bo‘yiga,shuningdek bog‘ va parklarda yakka-yakka va gruppalab ekiladi.(Introduktsiya, landshaft dizayn va gulchilik. Islomov B.S. va boshq., 2019)",
+    "example_uz": "Majnuntol ko‘cha yoqalariga va suv havzalari bo‘yiga, shuningdek bog‘ va parklarda yakka-yakka va gruppalab ekiladi. (Introduktsiya,landshaft dizayn va gulchilik. Islomov B.S. va boshq., 2019)",
     "field_uz": "Manzarali bog‘dorchilik → Landshaft bog‘dorchiligi",
     "synonyms_uz": "-",
     "english": "Weeping willow",
@@ -17599,7 +17599,7 @@
     "part_of_speech_uz": "sifat",
     "definition_uz": "Yorug‘lik intensivligi past bo‘lgan soyali muhitda yaxshi o‘sib-rivojlanadigan va kuchli, bevosita quyosh nuridan zararlanishi mumkin bo‘lgan o‘simliklarga xos ekologik xususiyat.",
     "etymology_uz": "-",
-    "example_uz": " Soxta kashtan - soyasevar o‘simlik.(Manzarali bog‘dorchilik. Qalandarov M.M., 2014)",
+    "example_uz": "Soxta kashtan - soyasevar o‘simlik.(Manzarali bog‘dorchilik. Qalandarov M.M., 2014)",
     "field_uz": "Agrobiologik asoslar → O‘simliklar fiziologiyasi",
     "synonyms_uz": "-",
     "english": "Shade-loving",
@@ -17966,7 +17966,7 @@
     "etymology_en": "-",
     "example_en": "At this particular site, frost protection measures such as orchard heating (burning fires) were implemented during the recent freeze event, and these efforts appear to have been largely successful in preventing severe damage, especially in peaches, nectarines, and apples. (Freeze Damage in Peaches and Apples and Other Fruit. Penn State Extension, 2025)",
     "field_en": "Horticulture → Horticultural Practices",
-    "synonyms_en": " Heater-based frost protection"
+    "synonyms_en": "Heater-based frost protection"
   },
   {
     "uzbek": "Qora sovuq",
@@ -18288,8 +18288,8 @@
     "definition_en": "Crops grown in the spaces between rows of orchard trees or grapevines to produce an additional harvest. They are selected and managed to minimize competition with the main perennial crop for water, nutrients and light.",
     "etymology_en": "-",
     "example_en": "A simple method, based on the difference of soil water content between inter-row crops and jujube trees, was introduced to judge the possibility of water competition happening. (Soil Water Effects of Agroforestry in Rainfed Jujube Orchards on Loess Hillslopes in Northwest China. Agriculture, Ecosystems & Environment, 2017)",
-    "field_en": "Pomology",
-    "synonyms_en": "Horticulture → Horticultural Practices"
+    "field_en": "Horticulture → Horticultural Practices",
+    "synonyms_en": "-"
   },
   {
     "uzbek": "Bog‘ kvartali",
@@ -18314,7 +18314,7 @@
     "definition_uz": "Bog‘da meva daraxtlari yoki rezavor meva o‘simliklarining ma’lum yo‘nalish bo‘ylab bir chiziqda ketma-ket joylashtirilgan qatori. Bog‘ qatorlarining yo‘nalishi va ular orasidagi masofa daraxtlarning yorug‘likdan samarali foydalanishi, o‘sishi va rivojlanishi, shuningdek, bog‘da agrotexnik tadbirlarni amalga oshirish va texnika vositalarining harakatlanishiga ta’sir qiladi.",
     "etymology_uz": "-",
     "example_uz": "“Bog‘ qator oralari shudgor qilib qo‘yilgan bo‘lsa, aprel-may oylarida daraxtlar gullagandan keyin, begona o‘tlar o‘sib chiqishi bilan kultivatsiya qilinadi.” (O‘zbekistonda intensiv mevachilik va uzumchilikning dolzarb muammolari va zamonaviy yutuqlari. Sattorov O.O., 2023, 148-bet)",
-    "field_uz": "Horticulture → Horticultural Practices",
+    "field_uz": "Bog‘dorchilik → Bog‘dorchilik agrotexnikasi",
     "synonyms_uz": "-",
     "english": "Tree row",
     "part_of_speech_en": "noun phrase",
@@ -18322,7 +18322,7 @@
     "definition_en": "A line or row of fruit trees established within an orchard as part of its planting layout. The orientation and spacing of tree rows are determined according to orchard design, management requirements, equipment access and efficient interception of sunlight.",
     "etymology_en": "-",
     "example_en": "“Given a fairly uniform plot without ledge, excessively sloped areas, wet zones, or other features that could impact the uniformity of the planting, tree rows should be straight, equally separated by the preferred drive-row width along their length, and properly oriented to other plantings or to maximize interception of sunlight.” (Planting OrganicA Orchard 4: A High-Density Planting with Scab-Resistant Cultivars. Bradshaw T.L., Berkett L.P., Kingsley-Richards S.L., Griffith M.C., University of Vermont, 2011)",
-    "field_en": "Bog‘dorchilik → Bog‘dorchilik agrotexnikasi",
+    "field_en": "Horticulture → Horticultural Practices",
     "synonyms_en": "-"
   },
   {
