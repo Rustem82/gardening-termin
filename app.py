@@ -330,13 +330,58 @@ def get_stats():
         total_categories = db.session.query(WordCategory.category).distinct().count()
         total_synonyms = WordSynonym.query.count()
 
+        # Реальные данные по категориям/частям речи из текущей БД.
+        # Никаких фиксированных чисел: статистика пересчитывается при каждом запросе.
+        raw_categories = (
+            db.session.query(WordCategory.category, func.count(WordCategory.id).label('count'))
+            .join(Word, Word.id == WordCategory.word_id)
+            .filter(~Word.word.startswith('_category_placeholder_'))
+            .filter(WordCategory.category.isnot(None))
+            .filter(WordCategory.category != '')
+            .group_by(WordCategory.category)
+            .all()
+        )
+
+        # Нормализуем близкие варианты, которые приходят из JSON:
+        # "ot", "ot (birikma)", "fe’l", "sifat/ot" и т.п.
+        normalized_counts = {}
+
+        def normalize_category_name(name):
+            value = (name or '').strip().lower()
+            value = value.replace('’', "'").replace('‘', "'").replace('ʻ', "'").replace('ʼ', "'")
+
+            if not value:
+                return None
+            if 'sifat' in value and 'ot' in value:
+                return "Sifat/ot shaklidagi terminlar"
+            if 'birikma' in value or 'birikmali' in value:
+                return "Birikmali terminlar"
+            if value in {"fe'l", 'fel'} or value.startswith("fe'l ") or value.startswith('fel '):
+                return "Fe'l"
+            if value == 'sifat' or value.startswith('sifat '):
+                return 'Sifat'
+            if value == 'ot' or value.startswith('ot '):
+                return 'Ot'
+
+            # Для неизвестных/других категорий оставляем исходное название.
+            return name.strip()
+
+        for category_name, count in raw_categories:
+            display_name = normalize_category_name(category_name)
+            if not display_name:
+                continue
+            normalized_counts[display_name] = normalized_counts.get(display_name, 0) + int(count or 0)
+
         top_categories = [
-            {"name": "Ot", "count": 4156},
-            {"name": "Sifat", "count": 315},
-            {"name": "Birikmali terminlar", "count": 383},
-            {"name": "Fe'l", "count": 247},
-            {"name": "Sifat/ot shaklidagi terminlar", "count": 22}
+            {"name": name, "count": count}
+            for name, count in sorted(
+                normalized_counts.items(),
+                key=lambda item: (-item[1], item[0].lower())
+            )[:5]
         ]
+
+        if not top_categories:
+            top_categories = [{"name": "Ma'lumot yo'q", "count": 0}]
 
         print(f"📊 API Stats: total_records={total_records}, unique_words={unique_words}")
         print(f"📊 Top categories: {top_categories}")
