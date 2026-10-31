@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="uz">
+<html lang="{{ site_lang|default('uz') }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -206,6 +206,10 @@
         width: 28px;
     }
 
+    .language-switch { display:flex; align-items:center; gap:3px; padding:3px; border:1px solid rgba(167,139,250,.3); border-radius:11px; background:rgba(255,255,255,.06); }
+    .language-switch a { color:rgba(255,255,255,.7); text-decoration:none; font-size:.72rem; padding:6px 8px; border-radius:8px; font-weight:600; white-space:nowrap; }
+    .language-switch a.selected { background:#7c3aed; color:white; }
+    @media(max-width:480px) { .language-switch a { padding:5px; font-size:.63rem; } }
     /* ===== RIGHT SECTION ===== */
     .nav-right {
         display: flex;
@@ -936,19 +940,19 @@
                     </svg>
                 </div>
                 <div class="logo-wordmark">
-                    <span class="logo-title">O‘zbek va ingliz</span>
-                    <span class="logo-sub">bog‘dorchilik terminlari</span>
+                    <span class="logo-title">{{ 'Uzbek and English' if site_lang == 'en' else 'O‘zbek va ingliz' }}</span>
+                    <span class="logo-sub">{{ 'horticultural terminology' if site_lang == 'en' else 'bog‘dorchilik terminlari' }}</span>
                 </div>
             </a>
 
             <!-- NAV LINKS -->
             <ul class="nav-links" id="navLinks">
-                <li><a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">Bosh sahifa</a></li>
-                <li><a href="{{ url_for('search') }}" class="nav-link {% if request.endpoint == 'search' %}active{% endif %}">Qidiruv</a></li>
-                <li><a href="{{ url_for('categories') }}" class="nav-link {% if request.endpoint == 'categories' %}active{% endif %}">Kategoriyalar</a></li>
-                <li><a href="{{ url_for('fields_list') }}" class="nav-link">Sohalar</a></li>
-                <li><a href="{{ url_for('about') }}" class="nav-link {% if request.endpoint == 'about' %}active{% endif %}">Loyiha haqida</a></li>
-                <li><a href="{{ url_for('agriculture_stats') }}" class="nav-link">📊 Statistika</a></li>
+                <li><a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">{{ 'Home' if site_lang == 'en' else 'Bosh sahifa' }}</a></li>
+                <li><a href="{{ url_for('search') }}" class="nav-link {% if request.endpoint == 'search' %}active{% endif %}">{{ 'Search' if site_lang == 'en' else 'Qidiruv' }}</a></li>
+                <li><a href="{{ url_for('categories') }}" class="nav-link {% if request.endpoint == 'categories' %}active{% endif %}">{{ 'Categories' if site_lang == 'en' else 'Kategoriyalar' }}</a></li>
+                <li><a href="{{ url_for('fields_list') }}" class="nav-link">{{ 'Fields' if site_lang == 'en' else 'Sohalar' }}</a></li>
+                <li><a href="{{ url_for('about') }}" class="nav-link {% if request.endpoint == 'about' %}active{% endif %}">{{ 'About project' if site_lang == 'en' else 'Loyiha haqida' }}</a></li>
+                <li><a href="{{ url_for('agriculture_stats') }}" class="nav-link">📊 {{ 'Statistics' if site_lang == 'en' else 'Statistika' }}</a></li>
                 {% if is_admin %}
                 <li><a href="{{ url_for('admin.dashboard') }}" class="nav-link {% if (request.endpoint or '').startswith('admin.') %}active{% endif %}">Admin</a></li>
                 {% endif %}
@@ -956,9 +960,14 @@
 
             <!-- RIGHT SIDE -->
             <div class="nav-right">
+                <div class="language-switch" aria-label="Language / Til">
+                    <a href="{{ url_for('set_language', lang='uz', next=request.full_path) }}" class="{{ 'selected' if site_lang != 'en' else '' }}" lang="uz" title="O‘zbekcha">🇺🇿</a>
+                    <a href="{{ url_for('set_language', lang='en', next=request.full_path) }}" class="{{ 'selected' if site_lang == 'en' else '' }}" lang="en" title="English">EN</a>
+                </div>
                 <div class="nav-search">
                     <form action="{{ url_for('search') }}" method="GET" class="search-form" id="searchForm">
-                        <input type="text" name="q" placeholder="Qidirish..." class="search-input" id="searchInput" autocomplete="off">
+                        <input type="hidden" name="direction" value="{{ dictionary_direction or 'uz-en' }}">
+                        <input type="text" name="q" placeholder="{{ 'Search...' if site_lang == 'en' else 'Qidirish...' }}" class="search-input" id="searchInput" autocomplete="off">
                         <button type="submit" class="search-btn">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                 <circle cx="11" cy="11" r="7"/>
@@ -994,28 +1003,28 @@
     <div class="stats-wrapper">
         <div class="stats-showcase">
             <div class="stats-header">
-                <h2>📊 <span>Termin statistikasi</span></h2>
+                <h2>📊 <span>{{ 'Term statistics' if site_lang == 'en' else 'Termin statistikasi' }}</span></h2>
             </div>
 
             <div class="stats-grid-horizontal">
                 <div class="stat-item-horizontal">
                     <div class="stat-icon-horizontal">📚</div>
                     <div class="stat-value-horizontal" id="homeWordCount">0</div>
-                    <div class="stat-label-horizontal">Terminlar</div>
+                    <div class="stat-label-horizontal">{{ 'Terms' if site_lang == 'en' else 'Terminlar' }}</div>
                     <div class="stat-trend-horizontal" id="wordTrend">+0%</div>
                 </div>
 
                 <div class="stat-item-horizontal">
                     <div class="stat-icon-horizontal">🏷️</div>
                     <div class="stat-value-horizontal" id="homeCategoryCount">0</div>
-                    <div class="stat-label-horizontal">Kategoriyalar</div>
+                    <div class="stat-label-horizontal">{{ 'Categories' if site_lang == 'en' else 'Kategoriyalar' }}</div>
                     <div class="stat-trend-horizontal" id="categoryTrend">+0%</div>
                 </div>
 
                 <div class="stat-item-horizontal">
                     <div class="stat-icon-horizontal">👥</div>
                     <div class="stat-value-horizontal" id="homeVisitorCount">0</div>
-                    <div class="stat-label-horizontal">Tashrif buyuruvchilar</div>
+                    <div class="stat-label-horizontal">{{ 'Visitors' if site_lang == 'en' else 'Tashrif buyuruvchilar' }}</div>
                     <div class="stat-trend-horizontal" id="visitorGrowth">+0%</div>
                 </div>
             </div>
@@ -1023,22 +1032,22 @@
             <!-- Дополнительная информация о посетителях -->
             <div class="visitor-stats-row">
                 <div class="visitor-stat">
-                    <span class="visitor-stat-label">Bugun:</span>
+                    <span class="visitor-stat-label">{{ 'Today:' if site_lang == 'en' else 'Bugun:' }}</span>
                     <span class="visitor-stat-value" id="todayVisitors">0</span>
                 </div>
                 <div class="visitor-stat">
-                    <span class="visitor-stat-label">So'nggi 24 soat:</span>
+                    <span class="visitor-stat-label">{{ 'Last 24 hours:' if site_lang == 'en' else "So'nggi 24 soat:" }}</span>
                     <span class="visitor-stat-value" id="activeVisitors">0</span>
                 </div>
                 <div class="visitor-stat">
-                    <span class="visitor-stat-label">Umumiy:</span>
+                    <span class="visitor-stat-label">{{ 'Total:' if site_lang == 'en' else 'Umumiy:' }}</span>
                     <span class="visitor-stat-value" id="totalVisitors">0</span>
                 </div>
             </div>
 
             <!-- Top Categories -->
             <div class="top-categories-compact">
-                <h3>🔝 Eng ko'p so'z to'plangan kategoriyalar</h3>
+                <h3>🔝 {{ 'Categories with the most terms' if site_lang == 'en' else "Eng ko'p so'z to'plangan kategoriyalar" }}</h3>
                 <div class="categories-row" id="topCategories">
                     <!-- Данные загружаются через JavaScript -->
                 </div>
@@ -1049,22 +1058,22 @@
     <footer class="footer">
         <div class="footer-container">
             <div class="footer-section">
-                <h3>Termin haqida</h3>
-                <p>Qulay qidiruv va navigatsiya bilan zamonaviy o'zbek tili terminisi</p>
+                <h3>{{ 'About Termin' if site_lang == 'en' else 'Termin haqida' }}</h3>
+                <p>{{ 'A modern bilingual terminology dictionary with convenient search and navigation' if site_lang == 'en' else "Qulay qidiruv va navigatsiya bilan zamonaviy o'zbek tili terminisi" }}</p>
             </div>
 
             <div class="footer-section">
-                <h3>Tez havolalar</h3>
+                <h3>{{ 'Quick links' if site_lang == 'en' else 'Tez havolalar' }}</h3>
                 <ul>
-                    <li><a href="{{ url_for('index') }}">Bosh sahifa</a></li>
-                    <li><a href="{{ url_for('search') }}">Qidiruv</a></li>
-                    <li><a href="{{ url_for('categories') }}">Kategoriyalar</a></li>
-                    <li><a href="{{ url_for('about') }}">Loyiha haqida</a></li>
+                    <li><a href="{{ url_for('index') }}">{{ 'Home' if site_lang == 'en' else 'Bosh sahifa' }}</a></li>
+                    <li><a href="{{ url_for('search') }}">{{ 'Search' if site_lang == 'en' else 'Qidiruv' }}</a></li>
+                    <li><a href="{{ url_for('categories') }}">{{ 'Categories' if site_lang == 'en' else 'Kategoriyalar' }}</a></li>
+                    <li><a href="{{ url_for('about') }}">{{ 'About project' if site_lang == 'en' else 'Loyiha haqida' }}</a></li>
                 </ul>
             </div>
 
             <div class="footer-section">
-                <h3>Bog'lanish</h3>
+                <h3>{{ 'Contact' if site_lang == 'en' else "Bog'lanish" }}</h3>
                 <p>Email: info@termin.uz</p>
                 <p>Telefon: +998 (90)9696264</p>
                 <div class="social-links">
@@ -1076,7 +1085,7 @@
         </div>
 
         <div class="footer-bottom">
-            <p>&copy; 2026 Termin. Barcha huquqlar himoyalangan.</p>
+            <p>&copy; 2026 Termin. {{ 'All rights reserved.' if site_lang == 'en' else 'Barcha huquqlar himoyalangan.' }}</p>
         </div>
     </footer>
 
@@ -1199,7 +1208,7 @@
                             </div>
                         `).join('');
                     } else {
-                        topCategories.innerHTML = '<div class="category-chip">Ma\'lumot yo\'q</div>';
+                        topCategories.innerHTML = '<div class="category-chip">No data</div>';
                     }
                 }
 
