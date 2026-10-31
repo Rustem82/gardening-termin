@@ -35,14 +35,22 @@
         {% if selected_letter %}
         <div class="search-container">
             <form action="{{ url_for('search') }}" method="GET" class="hero-search">
-                <input type="text" name="q" placeholder="So'zni kiriting..." class="hero-search-input" id="heroSearchInput">
-                <button type="submit" class="hero-search-btn">Qidirish</button>
-            </form>
+                <input type="text" name="q" placeholder="{{ 'Enter a term...' if site_lang == 'en' else "So'zni kiriting..." }}" class="hero-search-input" id="heroSearchInput">
+                <button type="submit" class="hero-search-btn">{{ "Search" if site_lang == "en" else "Qidirish" }}</button>
+            <input type="hidden" name="direction" value="{{ dictionary_direction or 'uz-en' }}" class="dictionary-direction-hidden"></form>
+<div class="dictionary-direction-picker" style="margin:10px 0 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+  <label for="dictionaryDirection" style="font-size:.85rem;">{{ 'Dictionary direction:' if site_lang == 'en' else "Lug‘at yo‘nalishi:" }}</label>
+  <select id="dictionaryDirection" aria-label="Dictionary direction" style="padding:7px 10px;border-radius:8px;border:1px solid #b9b9c9;max-width:100%;">
+    <option value="uz-en" {{ 'selected' if dictionary_direction != 'en-uz' else '' }}>O‘zbekcha → English</option>
+    <option value="en-uz" {{ 'selected' if dictionary_direction == 'en-uz' else '' }}>English → O‘zbekcha</option>
+  </select>
+</div>
+
         </div>
 
         <div class="results-header">
             <h2>"{{ selected_letter }}" harfiga oid so'zlar</h2>
-            <span class="results-count">{{ words|length }} ta so'z</span>
+            <span class="results-count">{{ words|length }} {{ 'words' if site_lang == 'en' else "ta so'z" }}</span>
         </div>
 
         <div class="words-grid">
@@ -50,11 +58,11 @@
             <a href="{{ url_for('word_detail', word=word.word) }}" class="word-card">
                 <h3>{{ word.word }}</h3>
                 <p>{{ word.definition[:100] }}{% if word.definition|length > 100 %}...{% endif %}</p>
-                <span class="word-link">Ko'rish →</span>
+                <span class="word-link">{{ "View →" if site_lang == "en" else "Ko'rish →" }}</span>
             </a>
             {% else %}
             <div class="no-results">
-                <p>Bu harf bilan boshlanuvchi so'zlar hali mavjud emas.</p>
+                <p>{{ "No words beginning with this letter are available yet." if site_lang == "en" else "Bu harf bilan boshlanuvchi so'zlar hali mavjud emas." }}</p>
             </div>
             {% endfor %}
         </div>
@@ -64,61 +72,68 @@
         <div class="hero-section" id="heroSection">
             <div class="hero-overlay"></div>
             <div class="hero-content">
-                <h1>O‘zbek va ingliz tillaridagi bog‘dorchilik terminlarining elektron lug‘ati</h1>
-                <p>So'zlarni alifbo bo'yicha tanlang yoki qidiruvdan foydalaning</p>
+                <h1>{{ "Electronic Dictionary of Uzbek and English Horticultural Terms" if site_lang == "en" else "O‘zbek va ingliz tillaridagi bog‘dorchilik terminlarining elektron lug‘ati" }}</h1>
+                <p>{{ "Browse terms alphabetically or use search" if site_lang == "en" else "So'zlarni alifbo bo'yicha tanlang yoki qidiruvdan foydalaning" }}</p>
 
                 <div class="hero-search">
                     <form action="{{ url_for('search') }}" method="GET">
-                        <input type="text" name="q" placeholder="So'zni kiriting..." class="hero-search-input" id="heroSearchInput">
-                        <button type="submit" class="hero-search-btn">Qidirish</button>
-                    </form>
+                        <input type="text" name="q" placeholder="{{ 'Enter a term...' if site_lang == 'en' else "So'zni kiriting..." }}" class="hero-search-input" id="heroSearchInput">
+                        <button type="submit" class="hero-search-btn">{{ "Search" if site_lang == "en" else "Qidirish" }}</button>
+                    <input type="hidden" name="direction" value="{{ dictionary_direction or 'uz-en' }}" class="dictionary-direction-hidden"></form>
+<div class="dictionary-direction-picker" style="margin:10px 0 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+  <label for="dictionaryDirection" style="font-size:.85rem;">{{ 'Dictionary direction:' if site_lang == 'en' else "Lug‘at yo‘nalishi:" }}</label>
+  <select id="dictionaryDirection" aria-label="Dictionary direction" style="padding:7px 10px;border-radius:8px;border:1px solid #b9b9c9;max-width:100%;">
+    <option value="uz-en" {{ 'selected' if dictionary_direction != 'en-uz' else '' }}>O‘zbekcha → English</option>
+    <option value="en-uz" {{ 'selected' if dictionary_direction == 'en-uz' else '' }}>English → O‘zbekcha</option>
+  </select>
+</div>
                 </div>
             </div>
         </div>
 
         <div class="features-section">
-            <h2>Imkoniyatlarimiz</h2>
+            <h2>{{ "Our Features" if site_lang == "en" else "Imkoniyatlarimiz" }}</h2>
             <div class="features-grid">
                 <div class="feature-card" onclick="window.location.href='{{ url_for('search') }}'" style="cursor: pointer;">
                     <div class="feature-icon">🔍</div>
-                    <h3>Aqlli qidiruv</h3>
-                    <p>So'zlar bo'yicha tezkor qidiruv va avtomatik to'ldirish</p>
+                    <h3>{{ "Smart Search" if site_lang == "en" else "Aqlli qidiruv" }}</h3>
+                    <p>{{ "Fast word search with autocomplete" if site_lang == "en" else "So'zlar bo'yicha tezkor qidiruv va avtomatik to'ldirish" }}</p>
                     <div class="feature-hover-info">
-                        <span>So'z qidirish →</span>
+                        <span>{{ "Search terms →" if site_lang == "en" else "So'z qidirish →" }}</span>
                     </div>
                 </div>
 
                 <div class="feature-card" onclick="window.location.href='{{ url_for('categories') }}'" style="cursor: pointer;">
                     <div class="feature-icon">📊</div>
-                    <h3>Boy ma'lumotlar bazasi</h3>
-                    <p>Sinonim va antonimlar bilan minglab so'zlar</p>
+                    <h3>{{ "Extensive Database" if site_lang == "en" else "Boy ma'lumotlar bazasi" }}</h3>
+                    <p>{{ "Thousands of words with synonyms and antonyms" if site_lang == "en" else "Sinonim va antonimlar bilan minglab so'zlar" }}</p>
                     <div class="feature-hover-info">
-                        <span>Kategoriyalarni ko'rish →</span>
+                        <span>{{ "View categories →" if site_lang == "en" else "Kategoriyalarni ko'rish →" }}</span>
                     </div>
                 </div>
 
                 <div class="feature-card" onclick="showRandomWord()" style="cursor: pointer;">
                     <div class="feature-icon">🎯</div>
-                    <h3>Aniq ta'riflar</h3>
-                    <p>Har bir so'z uchun batafsil tushuntirishlar</p>
+                    <h3>{{ "Precise Definitions" if site_lang == "en" else "Aniq ta'riflar" }}</h3>
+                    <p>{{ "Detailed explanations for every word" if site_lang == "en" else "Har bir so'z uchun batafsil tushuntirishlar" }}</p>
                     <div class="feature-hover-info">
-                        <span>Tasodifiy so'z →</span>
+                        <span>{{ "Random word →" if site_lang == "en" else "Tasodifiy so'z →" }}</span>
                     </div>
                 </div>
 
                 <div class="feature-card" onclick="window.location.href='{{ url_for('categories') }}'" style="cursor: pointer;">
                     <div class="feature-icon">⚡</div>
-                    <h3>Tezkor kirish</h3>
-                    <p>Kategoriyalar bo'yicha qulay navigatsiya</p>
+                    <h3>{{ "Quick Access" if site_lang == "en" else "Tezkor kirish" }}</h3>
+                    <p>{{ "Easy navigation by category" if site_lang == "en" else "Kategoriyalar bo'yicha qulay navigatsiya" }}</p>
                     <div class="feature-hover-info">
-                        <span>Kategoriyalar →</span>
+                        <span>{{ "Categories →" if site_lang == "en" else "Kategoriyalar →" }}</span>
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="popular-section">
-            <h2>Ommabop so'zlar</h2>
+            <h2>{{ "Popular Words" if site_lang == "en" else "Ommabop so'zlar" }}</h2>
             <div class="popular-grid">
                 {% for word in popular_words %}
                 <a href="{{ url_for('word_detail', word=word) }}" class="popular-card">
@@ -994,4 +1009,15 @@ if (heroSearchInput) {
     });
 }
 </script>
+<script>
+document.addEventListener('DOMContentLoaded',function(){
+ const chooser=document.getElementById('dictionaryDirection');
+ if(!chooser)return;
+ chooser.addEventListener('change',function(){
+  document.querySelectorAll('.dictionary-direction-hidden').forEach(x=>x.value=this.value);
+  window.location.href='/set-dictionary-direction/'+encodeURIComponent(this.value)+'?next='+encodeURIComponent(window.location.pathname+window.location.search);
+ });
+});
+</script>
+
 {% endblock %}
