@@ -3,10 +3,13 @@
 {% block title %}Statistika - Tezaurus{% endblock %}
 
 {% block content %}
+<style>
+{% if site_lang == 'en' %}.stats-container .tab-uz{display:none!important}{% else %}.stats-container .tab-en{display:none!important}{% endif %}
+</style>
 <div class="stats-container">
     <div class="stats-header">
         <h1>📊 O'zbek va ingliz tillaridagi bog'dorchilik terminlarining statistikasi</h1>
-        <p>Terminlarning sohalar, turkumlar, tarkib, sinonim, antonim va boshqa ko'rsatkichlar bo'yicha tahlili</p>
+        <p>{{ "Analysis of terms by field, category, structure, synonyms, antonyms, and other indicators" if site_lang == "en" else "Terminlarning sohalar, turkumlar, tarkib, sinonim, antonim va boshqa ko'rsatkichlar bo'yicha tahlili" }}</p>
     </div>
 
     <!-- TABS -->
