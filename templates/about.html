@@ -5,29 +5,29 @@
 {% block content %}
 <div class="about-page">
     <div class="about-header">
-        <h1>Loyiha haqida</h1>
-        <p>O'zbek tilini sevuvchilar uchun zamonaviy termini</p>
+        <h1>{{ "About the Project" if site_lang == "en" else "Loyiha haqida" }}</h1>
+        <p>{{ "A modern terminology resource for Uzbek language enthusiasts" if site_lang == "en" else "O'zbek tilini sevuvchilar uchun zamonaviy termini" }}</p>
     </div>
 
     <div class="about-content">
         <div class="about-section">
-            <h2>Termin nima?</h2>
-            <p>Termin - so'zlar ma'no jihatdan bog'langan lug'at. Oddiy lug'atdan farqli o'laroq, bu yerda siz nafaqat ta'riflarni, balki sinonimlar, antonimlar, shuningdek umumiy va xususiy tushunchalarni ham topasiz.</p>
+            <h2>{{ "What is Termin?" if site_lang == "en" else "Termin nima?" }}</h2>
+            <p>{{ "Termin is a dictionary of semantically related words. Unlike an ordinary dictionary, it provides not only definitions but also synonyms, antonyms, and broader and narrower concepts." if site_lang == "en" else "Termin - so'zlar ma'no jihatdan bog'langan lug'at. Oddiy lug'atdan farqli o'laroq, bu yerda siz nafaqat ta'riflarni, balki sinonimlar, antonimlar, shuningdek umumiy va xususiy tushunchalarni ham topasiz." }}</p>
         </div>
 
         <div class="about-section">
-            <h2>Bizning vazifamiz</h2>
-            <p>Biz o'zbek tilini o'rganishni yanada qiziqarli va samarali qilishga intilamiz. Terminimiz fikrlarni ifodalash uchun aniq so'zlarni topishga, so'z boyligini oshirishga va so'zlarning ma'no nozikliklarini yaxshiroq tushunishga yordam beradi.</p>
+            <h2>{{ "Our Mission" if site_lang == "en" else "Bizning vazifamiz" }}</h2>
+            <p>{{ "We aim to make learning Uzbek more engaging and effective. Our dictionary helps users find precise words, expand their vocabulary, and better understand subtle differences in meaning." if site_lang == "en" else "Biz o'zbek tilini o'rganishni yanada qiziqarli va samarali qilishga intilamiz. Terminimiz fikrlarni ifodalash uchun aniq so'zlarni topishga, so'z boyligini oshirishga va so'zlarning ma'no nozikliklarini yaxshiroq tushunishga yordam beradi." }}</p>
         </div>
 
         <div class="about-section">
-            <h2>Terminimizning xususiyatlari</h2>
+            <h2>{{ "Our Features" if site_lang == "en" else "Terminimizning xususiyatlari" }}</h2>
             <ul class="features-list">
-                <li>📚 Batafsil tavsiflar bilan 1000 dan ortiq so'zlar</li>
-                <li>🔄 Har xil turdagi so'zlar o'rtasidagi bog'lanishlar</li>
-                <li>🔍 Avtomatik to'ldirish bilan aqlli qidiruv</li>
-                <li>📱 Barcha qurilmalar uchun moslashuvchan dizayn</li>
-                <li>⚡ Tez va qulay navigatsiya</li>
+                <li>{{ "📚 Over 1,000 words with detailed descriptions" if site_lang == "en" else "📚 Batafsil tavsiflar bilan 1000 dan ortiq so'zlar" }}</li>
+                <li>{{ "🔄 Different types of semantic relationships" if site_lang == "en" else "🔄 Har xil turdagi so'zlar o'rtasidagi bog'lanishlar" }}</li>
+                <li>{{ "🔍 Smart search with autocomplete" if site_lang == "en" else "🔍 Avtomatik to'ldirish bilan aqlli qidiruv" }}</li>
+                <li>{{ "📱 Responsive design for all devices" if site_lang == "en" else "📱 Barcha qurilmalar uchun moslashuvchan dizayn" }}</li>
+                <li>{{ "⚡ Fast and convenient navigation" if site_lang == "en" else "⚡ Tez va qulay navigatsiya" }}</li>
             </ul>
         </div>
     </div>
