@@ -5,16 +5,16 @@
 {% block content %}
 <div class="fields-page">
     <div class="fields-header">
-        <h1>Sohalar bo‘yicha navigatsiya</h1>
-        <p>Terminlarni qidirish uchun sohani tanlang</p>
+        <h1>{{ "Browse by Field" if site_lang == "en" else "Sohalar bo‘yicha navigatsiya" }}</h1>
+        <p>{{ "Select a field to search for terms" if site_lang == "en" else "Terminlarni qidirish uchun sohani tanlang" }}</p>
     </div>
 
     <div class="fields-grid">
         {% for field in fields %}
         <a href="{{ url_for('field_page', field_name=field.name) }}" class="field-card">
             <div class="field-icon"></div>
-            <div class="field-name">{{ field.name }}</div>
-            <div class="field-en">{{ field.en }}</div>
+            <div class="field-name">{{ field.en if site_lang == 'en' and field.en else field.name }}</div>
+            <div class="field-en">{{ field.name if site_lang == 'en' else field.en }}</div>
             <span class="field-arrow">→</span>
         </a>
         {% endfor %}
