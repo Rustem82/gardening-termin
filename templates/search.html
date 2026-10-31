@@ -1,29 +1,43 @@
 {% extends "base.html" %}
 
-{% block title %}Qidiruv - Tezaurus{% endblock %}
+{% block title %}Search - Thesaurus{% endblock %}
 
 {% block content %}
+{% set page_en = site_lang == 'en' %}
 <div class="search-page">
     <div class="search-header">
-        <h1>So'zlarni qidirish</h1>
+        <h1>{{ 'Search terms' if page_en else "So'zlarni qidirish" }}</h1>
         <form action="{{ url_for('search') }}" method="GET" class="search-form-large">
+            <input type="hidden" name="direction" value="{{ dictionary_direction or 'uz-en' }}">
             <div class="search-wrapper">
-                <input type="text" name="q" value="{{ query }}" placeholder="So'zni kiriting (masalan: tuproq)..." class="search-input-large" id="mainSearchInput" autofocus>
-                <button type="submit" class="search-button-large">Qidirish</button>
+                <input type="text" name="q" value="{{ query }}" placeholder="{{ "Enter a term (e.g., native plants)..." if page_en else "So'zni kiriting (masalan: tuproq)..." }}" class="search-input-large" id="mainSearchInput" autofocus>
+                <button type="submit" class="search-button-large">{{ 'Search' if page_en else 'Qidirish' }}</button>
             </div>
         </form>
+        <div style="margin-top:10px;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;">
+          <label for="searchDictionaryDirection">{{ 'Dictionary direction:' if page_en else "Lug‘at yo‘nalishi:" }}</label>
+          <select id="searchDictionaryDirection" style="padding:7px;border-radius:8px;" onchange="window.location.href='/set-dictionary-direction/'+encodeURIComponent(this.value)+'?next='+encodeURIComponent(window.location.pathname+window.location.search)">
+            <option value="uz-en" {{ 'selected' if dictionary_direction != 'en-uz' else '' }}>O‘zbekcha → English</option>
+            <option value="en-uz" {{ 'selected' if dictionary_direction == 'en-uz' else '' }}>English → O‘zbekcha</option>
+          </select>
+        </div>
     </div>
 
     {% if query %}
     <div class="search-results">
-        <h2>"{{ query }}" bo'yicha natijalar</h2>
+        <h2>{{ 'Results for' if page_en else 'Natijalar: ' }} "{{ query }}"</h2>
 
         {% if results %}
         <!-- УБРАЛИ СЕМАНТИЧЕСКУЮ СЕТЬ, ОСТАВИЛИ ТОЛЬКО СПИСОК РЕЗУЛЬТАТОВ -->
         <div class="results-list-container-full">
             <div class="results-header">
+<<<<<<< HEAD
                 <h3>📋 Qidiruv natijalari</h3>
                 <span class="results-count">{{ results|length }} ta so'z</span>
+=======
+                <h3>📋 {{ 'Search results' if page_en else 'Qidiruv natijalari' }}</h3>
+                <span class="results-count">{{ results|length }} {{ 'results' if page_en else 'ta soʻz' }}</span>
+>>>>>>> 42c91a9 (Update Uzbek English bilingual dictionary)
             </div>
             <div class="results-list" id="searchResultsList">
                 {% for result in results %}
@@ -42,66 +56,110 @@
                         <!-- Основная информация о слове -->
                         <div class="result-text-content">
                             <div class="result-header">
+<<<<<<< HEAD
                                 <h3>{{ result.word }}</h3>
                                 <div class="result-badges">
                                     {% if result.part_of_speech_uz %}
                                         <span class="badge">{{ result.part_of_speech_uz }}</span>
                                     {% endif %}
                                     {% if result.part_of_speech_en %}
+=======
+                                <h3>{% if result.matched_alias and (result.matched_alias|related_lang) == result.search_lang %}{{ result.matched_alias }}{% elif result.search_lang == 'en' %}{{ result.english or result.word }}{% else %}{{ result.word }}{% endif %}</h3>
+                                {% if result.matched_alias and result.matched_alias != result.word and (result.matched_alias|related_lang) == result.search_lang %}<div class="matched-main-term">{% if result.search_lang == 'en' %}Dictionary entry: {{ result.english or result.word }}{% else %}Asosiy termin: {{ result.word }}{% endif %}</div>{% endif %}
+                                <div class="result-badges">
+                                    {% if result.search_lang != 'en' and result.part_of_speech_uz %}
+                                        <span class="badge">{{ result.part_of_speech_uz }}</span>
+                                    {% endif %}
+                                    {% if result.search_lang != 'uz' and result.part_of_speech_en %}
+>>>>>>> 42c91a9 (Update Uzbek English bilingual dictionary)
                                         <span class="badge">{{ result.part_of_speech_en }}</span>
                                     {% endif %}
                                 </div>
                             </div>
 
                             <!-- Определение (узбекское) -->
+<<<<<<< HEAD
                             {% if result.definition_uz %}
+=======
+                            {% if result.search_lang != 'en' and result.definition_uz %}
+>>>>>>> 42c91a9 (Update Uzbek English bilingual dictionary)
                             <div class="result-definition">
                                 <strong>📖 Ta'rif (O'zbekcha):</strong> {{ result.definition_uz }}
                             </div>
                             {% endif %}
 
                             <!-- Английское определение -->
+<<<<<<< HEAD
                             {% if result.definition_en %}
+=======
+                            {% if result.search_lang != 'uz' and result.definition_en %}
+>>>>>>> 42c91a9 (Update Uzbek English bilingual dictionary)
                             <div class="result-definition">
                                 <strong>🇬🇧 English Definition:</strong> {{ result.definition_en }}
                             </div>
                             {% endif %}
 
                             <!-- Английский перевод -->
+<<<<<<< HEAD
                             {% if result.english %}
+=======
+                            {% if result.search_lang == 'both' and result.english %}
+>>>>>>> 42c91a9 (Update Uzbek English bilingual dictionary)
                             <div class="result-translation">
                                 <strong>🇬🇧 Tarjimasi:</strong> {{ result.english }}
                             </div>
                             {% endif %}
 
                             <!-- Произношение -->
+<<<<<<< HEAD
                             {% if result.pronunciation %}
                             <div class="result-pronunciation">
                                 <strong>🔊 Talaffuzi:</strong> {{ result.pronunciation }}
+=======
+                            {% if result.search_lang != 'uz' and result.pronunciation %}
+                            <div class="result-pronunciation">
+                                <strong>🔊 {{ 'Pronunciation:' if result.search_lang == 'en' else 'Talaffuzi:' }}</strong> {{ result.pronunciation }}
+>>>>>>> 42c91a9 (Update Uzbek English bilingual dictionary)
                             </div>
                             {% endif %}
 
                             <!-- Этимология (узбекская) -->
+<<<<<<< HEAD
                             {% if result.etymology_uz %}
+=======
+                            {% if result.search_lang != 'en' and result.etymology_uz %}
+>>>>>>> 42c91a9 (Update Uzbek English bilingual dictionary)
                             <div class="result-etymology">
                                 <strong>📜 Etimologiyasi (O'zbekcha):</strong> {{ result.etymology_uz }}
                             </div>
                             {% endif %}
 
                             <!-- Этимология (английская) -->
+<<<<<<< HEAD
                             {% if result.etymology_en %}
+=======
+                            {% if result.search_lang != 'uz' and result.etymology_en %}
+>>>>>>> 42c91a9 (Update Uzbek English bilingual dictionary)
                             <div class="result-etymology">
                                 <strong>🇬🇧 Etymology (English):</strong> {{ result.etymology_en }}
                             </div>
                             {% endif %}
 
                             <!-- Примеры -->
+<<<<<<< HEAD
                             {% if result.example_uz %}
+=======
+                            {% if result.search_lang != 'en' and result.example_uz %}
+>>>>>>> 42c91a9 (Update Uzbek English bilingual dictionary)
                             <div class="result-example">
                                 <strong>📝 Misol (O'zbekcha):</strong> {{ result.example_uz }}
                             </div>
                             {% endif %}
+<<<<<<< HEAD
                             {% if result.example_en %}
+=======
+                            {% if result.search_lang != 'uz' and result.example_en %}
+>>>>>>> 42c91a9 (Update Uzbek English bilingual dictionary)
                             <div class="result-example">
                                 <strong>📝 Example (English):</strong> {{ result.example_en }}
                             </div>
@@ -111,61 +169,105 @@
                             <div class="result-relations">
                                 {% if result.synonyms_uz %}
                                 <div class="relation-group">
+<<<<<<< HEAD
                                     <span class="relation-label">🔄 Sinonimlar:</span>
                                     <span class="relation-items">{{ result.synonyms_uz|join(', ') }}</span>
+=======
+                                    <span class="relation-label">🔄 {{ 'Synonyms:' if result.search_lang == 'en' else 'Sinonimlar:' }}</span>
+                                    <span class="relation-items">{% set ns = namespace(first=true) %}{% for term in result.synonyms_uz %}{% if term|related_lang == result.search_lang %}{% if not ns.first %}, {% endif %}<a href="{{ url_for('related_term', term=term, lang=term|related_lang) }}" class="semantic-term-link">{{ term }}</a>{% set ns.first = false %}{% endif %}{% endfor %}</span>
+>>>>>>> 42c91a9 (Update Uzbek English bilingual dictionary)
                                 </div>
                                 {% endif %}
 
                                 {% if result.антонимы %}
                                 <div class="relation-group">
+<<<<<<< HEAD
                                     <span class="relation-label">⚔️ Antonimlar:</span>
                                     <span class="relation-items">{{ result.антонимы|join(', ') }}</span>
+=======
+                                    <span class="relation-label">⚔️ {{ 'Antonyms:' if result.search_lang == 'en' else 'Antonimlar:' }}</span>
+                                    <span class="relation-items">{% for term in result.антонимы %}{% if term|related_lang == result.search_lang %}<a href="{{ url_for('related_term', term=term, lang=term|related_lang) }}" class="semantic-term-link">{{ term }}</a>, {% endif %}{% endfor %}</span>
+>>>>>>> 42c91a9 (Update Uzbek English bilingual dictionary)
                                 </div>
                                 {% endif %}
 
                                 {% if result.гиперонимы %}
                                 <div class="relation-group">
+<<<<<<< HEAD
                                     <span class="relation-label">⬆️ Giperonimlar:</span>
                                     <span class="relation-items">{{ result.гиперонимы|join(', ') }}</span>
+=======
+                                    <span class="relation-label">⬆️ {{ 'Hypernyms:' if result.search_lang == 'en' else 'Giperonimlar:' }}</span>
+                                    <span class="relation-items">{% for term in result.гиперонимы %}{% if term|related_lang == result.search_lang %}<a href="{{ url_for('related_term', term=term, lang=term|related_lang) }}" class="semantic-term-link">{{ term }}</a>, {% endif %}{% endfor %}</span>
+>>>>>>> 42c91a9 (Update Uzbek English bilingual dictionary)
                                 </div>
                                 {% endif %}
 
                                 {% if result.гипонимы %}
                                 <div class="relation-group">
+<<<<<<< HEAD
                                     <span class="relation-label">⬇️ Giponimlar:</span>
                                     <span class="relation-items">{{ result.гипонимы|join(', ') }}</span>
+=======
+                                    <span class="relation-label">⬇️ {{ 'Hyponyms:' if result.search_lang == 'en' else 'Giponimlar:' }}</span>
+                                    <span class="relation-items">{% for term in result.гипонимы %}{% if term|related_lang == result.search_lang %}<a href="{{ url_for('related_term', term=term, lang=term|related_lang) }}" class="semantic-term-link">{{ term }}</a>, {% endif %}{% endfor %}</span>
+>>>>>>> 42c91a9 (Update Uzbek English bilingual dictionary)
                                 </div>
                                 {% endif %}
 
                                 {% if result.xolonim %}
                                 <div class="relation-group">
+<<<<<<< HEAD
                                     <span class="relation-label">🔗 Xolonimlar:</span>
                                     <span class="relation-items">{{ result.xolonim|join(', ') }}</span>
+=======
+                                    <span class="relation-label">🔗 {{ 'Holonyms:' if result.search_lang == 'en' else 'Xolonimlar:' }}</span>
+                                    <span class="relation-items">{% for term in result.xolonim %}{% if term|related_lang == result.search_lang %}<a href="{{ url_for('related_term', term=term, lang=term|related_lang) }}" class="semantic-term-link">{{ term }}</a>, {% endif %}{% endfor %}</span>
+>>>>>>> 42c91a9 (Update Uzbek English bilingual dictionary)
                                 </div>
                                 {% endif %}
 
                                 {% if result.meronim %}
                                 <div class="relation-group">
+<<<<<<< HEAD
                                     <span class="relation-label">🧩 Meronimlar:</span>
                                     <span class="relation-items">{{ result.meronim|join(', ') }}</span>
+=======
+                                    <span class="relation-label">🧩 {{ 'Meronyms:' if result.search_lang == 'en' else 'Meronimlar:' }}</span>
+                                    <span class="relation-items">{% for term in result.meronim %}{% if term|related_lang == result.search_lang %}<a href="{{ url_for('related_term', term=term, lang=term|related_lang) }}" class="semantic-term-link">{{ term }}</a>, {% endif %}{% endfor %}</span>
+>>>>>>> 42c91a9 (Update Uzbek English bilingual dictionary)
                                 </div>
                                 {% endif %}
 
                                 {% if result.omonim %}
                                 <div class="relation-group">
+<<<<<<< HEAD
                                     <span class="relation-label">🔤 Omonimlar:</span>
                                     <span class="relation-items">{{ result.omonim|join(', ') }}</span>
+=======
+                                    <span class="relation-label">🔤 {{ 'Homonyms:' if result.search_lang == 'en' else 'Omonimlar:' }}</span>
+                                    <span class="relation-items">{% for term in result.omonim %}{% if term|related_lang == result.search_lang %}<a href="{{ url_for('related_term', term=term, lang=term|related_lang) }}" class="semantic-term-link">{{ term }}</a>, {% endif %}{% endfor %}</span>
+>>>>>>> 42c91a9 (Update Uzbek English bilingual dictionary)
                                 </div>
                                 {% endif %}
 
                                 {% if result.paronim %}
                                 <div class="relation-group">
+<<<<<<< HEAD
                                     <span class="relation-label">🎤 Paronimlar:</span>
                                     <span class="relation-items">{{ result.paronim|join(', ') }}</span>
                                 </div>
                                 {% endif %}
 
                                 {% if result.field_uz %}
+=======
+                                    <span class="relation-label">🎤 {{ 'Paronyms:' if result.search_lang == 'en' else 'Paronimlar:' }}</span>
+                                    <span class="relation-items">{% for term in result.paronim %}{% if term|related_lang == result.search_lang %}<a href="{{ url_for('related_term', term=term, lang=term|related_lang) }}" class="semantic-term-link">{{ term }}</a>, {% endif %}{% endfor %}</span>
+                                </div>
+                                {% endif %}
+
+                                {% if result.search_lang != 'en' and result.field_uz %}
+>>>>>>> 42c91a9 (Update Uzbek English bilingual dictionary)
                                 <div class="relation-group">
                                     <span class="relation-label">🏷️ Qo'llanilish sohasi:</span>
                                     <span class="relation-items">{{ result.field_uz|join(', ') }}</span>
@@ -175,7 +277,11 @@
 
                             <!-- Ссылка на полную страницу -->
                             <div class="result-footer">
+<<<<<<< HEAD
                                 <a href="{{ url_for('word_detail', word=result.word) }}" class="result-link-btn">Batafsil ko'rish →</a>
+=======
+                                <a href="{{ url_for('word_detail', word=result.word, lang=result.search_lang) }}" class="result-link-btn">{{ 'View details' if result.search_lang == 'en' else "Batafsil ko'rish" }} →</a>
+>>>>>>> 42c91a9 (Update Uzbek English bilingual dictionary)
                             </div>
                         </div>
                     </div>
@@ -183,12 +289,21 @@
                     <!-- БЛИЖАЙШИЕ / СВЯЗАННЫЕ ТЕРМИНЫ ПОД КАРТОЧКОЙ -->
                     {% if result.nearby_terms %}
                     <div class="search-nearby-terms">
+<<<<<<< HEAD
                         <div class="search-nearby-title">🔗 Yaqin terminlar</div>
                         <div class="search-nearby-chips">
                             {% for term in result.nearby_terms %}
                             <a href="{{ url_for('word_detail', word=term) }}"
                                class="search-nearby-chip"
                                title="{{ term }} haqida batafsil">
+=======
+                        <div class="search-nearby-title">🔗 {{ 'Related terms' if result.search_lang == 'en' else 'Yaqin terminlar' }}</div>
+                        <div class="search-nearby-chips">
+                            {% for term in result.nearby_terms %}
+                            <a href="{{ url_for('related_term', term=term, lang=result.search_lang) }}"
+                               class="search-nearby-chip"
+                               title="{{ term }}">
+>>>>>>> 42c91a9 (Update Uzbek English bilingual dictionary)
                                 {{ term }}
                             </a>
                             {% endfor %}
@@ -201,10 +316,10 @@
         </div>
         {% else %}
         <div class="no-results">
-            <p>Sizning so'rovingiz bo'yicha hech narsa topilmadi.</p>
-            <p>So'rovingizni o'zgartirib yoki boshqa so'z qidirib ko'ring.</p>
+            <p>{{ 'No results found for your search.' if page_en else "Sizning so'rovingiz bo'yicha hech narsa topilmadi." }}</p>
+            <p>{{ 'Try another search term.' if page_en else "So'rovingizni o'zgartirib yoki boshqa so'z qidirib ko'ring." }}</p>
             <div class="search-suggestions">
-                <h3>Mumkin bo'lgan so'zlar:</h3>
+                <h3>{{ 'Suggested terms:' if page_en else "Mumkin bo'lgan so'zlar:" }}</h3>
                 <div class="suggestion-links">
                     <a href="{{ url_for('search') }}?q=tuproq">tuproq</a>
                     <a href="{{ url_for('search') }}?q=uy">uy</a>
@@ -608,4 +723,8 @@ document.getElementById('mainSearchInput')?.addEventListener('keypress', functio
     }
 });
 </script>
+<<<<<<< HEAD
+=======
+<style>.semantic-term-link{color:inherit;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;cursor:pointer}.semantic-term-link:hover{color:var(--primary)}</style>
+>>>>>>> 42c91a9 (Update Uzbek English bilingual dictionary)
 {% endblock %}
