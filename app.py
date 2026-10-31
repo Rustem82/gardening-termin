@@ -1,7 +1,8 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from flask_login import LoginManager, current_user
 from config import Config
-from models import db, Word, WordCategory, WordSynonym, WordAntonym, WordHyperonym, WordHyponym, WordHolonym, WordMeronym, WordHomonym, WordParonym, WordUsageArea, Visit, UserVisit
+from models import db, Word, WordCategory, WordSynonym, WordAntonym, WordHyperonym, WordHyponym, WordHolonym, \
+    WordMeronym, WordHomonym, WordParonym, WordUsageArea, Visit, UserVisit
 from admin import admin_bp, create_admin
 from data_sync import ensure_word_columns, sync_dataset
 from datetime import datetime
