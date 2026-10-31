@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from flask_login import LoginManager, current_user
 from config import Config
 from models import db, Word, WordCategory, WordSynonym, WordAntonym, WordHyperonym, WordHyponym, WordHolonym, \
@@ -10,6 +10,29 @@ import os
 
 app = Flask(__name__)
 app.config.from_object(Config)
+
+# Site interface language is independent from the language of an individual alias.
+@app.route('/set-language/<lang>')
+def set_language(lang):
+    if lang not in ('uz', 'en'):
+        return redirect(url_for('index'))
+    session['site_lang'] = lang
+    destination = request.args.get('next', '/')
+    # Only allow internal relative URLs (prevent open redirects).
+    if not destination.startswith('/') or destination.startswith('//') or '\\' in destination:
+        destination = '/'
+    return redirect(destination)
+
+# Dictionary direction is independent of the interface language.
+@app.route('/set-dictionary-direction/<direction>')
+def set_dictionary_direction(direction):
+    if direction not in ('uz-en', 'en-uz'):
+        return redirect(url_for('index'))
+    session['dictionary_direction'] = direction
+    destination = request.args.get('next', '/')
+    if not destination.startswith('/') or destination.startswith('//') or '\\' in destination:
+        destination = '/'
+    return redirect(destination)
 
 # Инициализация базы данных
 db.init_app(app)
@@ -79,21 +102,46 @@ def index():
 @app.route('/search')
 def search():
     query = request.args.get('q', '').strip()
+    direction = request.args.get('direction')
+    if direction in ('uz-en', 'en-uz'):
+        session['dictionary_direction'] = direction
+    direction = session.get('dictionary_direction')
     results = []
 
     if query:
         try:
-            # Ищем по названию слова ИЛИ по области применения
-            words = Word.query.filter(
-                (Word.word.ilike(f'%{query.lower()}%')) |
-                (Word.usage_areas.any(WordUsageArea.area.ilike(f'%{query}%'))),
-                ~Word.word.startswith('_category_placeholder_')
-            ).all()
+            # Search headwords, English translations and semantic aliases.
+            # Unicode normalization also makes o‘ / o' apostrophes equivalent.
+            normalized_query = _normalize_term(query)
+            words = []
+            matching_aliases = {}
+            relation_names = ('synonyms', 'antonyms', 'hyperonyms', 'hyponyms',
+                              'holonyms', 'meronyms', 'homonyms', 'paronyms')
+            for candidate in Word.query.filter(
+                    ~Word.word.startswith('_category_placeholder_')).all():
+                labels = [candidate.word, candidate.translation_en or '']
+                aliases = []
+                for relation_name in relation_names:
+                    for relation in getattr(candidate, relation_name):
+                        aliases.extend(part.strip() for part in
+                                       (relation.related_word or '').split(';') if part.strip())
+                matching_alias = next((alias for alias in aliases
+                                       if normalized_query in _normalize_term(alias)), None)
+                matches = (any(normalized_query in _normalize_term(label) for label in labels)
+                           or any(normalized_query in _normalize_term(area.area)
+                                  for area in candidate.usage_areas)
+                           or matching_alias is not None)
+                if matches:
+                    words.append(candidate)
+                    if matching_alias:
+                        matching_aliases[candidate.id] = matching_alias
 
             # Сортировка: точное совпадение слова, начало слова, затем остальные
             def sort_words(word_obj):
-                word_lower = word_obj.word.lower()
-                query_lower = query.lower()
+                word_lower = _normalize_term(word_obj.word)
+                query_lower = normalized_query
+                if _normalize_term(matching_aliases.get(word_obj.id, '')) == query_lower:
+                    return (-1, word_lower)
                 if word_lower == query_lower:
                     return (0, word_lower)
                 elif word_lower.startswith(query_lower):
@@ -106,6 +154,8 @@ def search():
             for word in words:
                 results.append({
                     'word': word.word,
+                    'matched_alias': matching_aliases.get(word.id),
+                    'search_lang': ('en' if direction == 'en-uz' else 'uz') if direction in ('uz-en', 'en-uz') else ('en' if _related_term_language(query) == 'en' else 'uz'),
                     'part_of_speech_uz': word.categories[0].category if word.categories.count() > 0 else '',
                     'definition_uz': word.definition,
                     'etymology_uz': word.etymology,
@@ -171,6 +221,99 @@ def _find_word_by_url_term(value):
     return None
 
 
+
+# English synonym labels extracted from the bilingual source dataset.
+# This keeps language classification accurate even though the SQL relations are merged.
+_ENGLISH_SYNONYMS = ('-', 'Abiotic diseases', 'Absorptive fine roots', 'Acclimate', 'Acicular leaf', 'Aerosol irrigation', 'Agricultural biology', 'Agricultural chemistry', 'Agricultural experiment station', 'Agricultural frost', 'Agricultural logistics', 'Agronomic chemistry', 'Aleyrodid', 'Allelomorphic characters', 'Alligator pear', 'Almond plantation', 'Amazon waterlily', 'American Judas tree', 'American blight', 'American redbud', 'Ammonia fertilizer', 'Ammonium sulphate', 'Anemochores', 'Anemophiles', 'Annuals', 'Anthocyan', 'Apical meristems', 'Apple aphid', 'Apple leaf miner', 'Apple powdery mildew', 'Apple woolly aphid', 'Arbour system', 'Artichoke', 'Asexual propagation', 'Asiatic elm', 'Atmospheric humidity', 'Aubergine, brinjal', 'Austrian pine', 'Autoclave', 'Autumn ploughing', 'Autumnal', 'Azotobacter inoculant', 'BHC', 'Babylon weeping willow', "Bachelor's button", 'Bacterial biofertilizers', 'Barren', 'Bed porosity', 'Beet producer', 'Bench grafting', 'Benzene hexachloride', 'Berry', 'Berry production', 'Biochromes', 'Biocontrol laboratory', 'Biofactory', 'Biological control', 'Biological pigments', 'Biotic environment', 'Biparental cross', 'Bitter orange', 'Blaeberry', 'Bloom period', 'Blossom', 'Bluebottle', 'Branch', 'Branch out', 'Branch roots', 'Breeder', 'Broadleaf tree', 'Brown fruit mite', 'Brown rot of fruit trees', 'Bunch', 'Bush', 'Bushland', 'Bushy', 'Cabbage family', 'Cabbage white butterfly', 'California scale', 'Californian scale', 'Calla', 'Canada goldenrod', 'Caragana', 'Carbamide', 'Carbonyl diamide', 'Carpellum', 'Cascade', 'Casebearer moth', 'Cellular respiration', 'Chasteberry', 'Check variety', 'Chemical composition of soil', 'Chemical pest control', 'Cherry slug', 'Chestnut genus', 'Chile saltpeter', 'Chilli pepper', 'Chinar tree', 'Chinese arborvitae', 'Chinese date', 'Chinese jujube', 'Chinese persimmon', 'Chisel tillage', 'Citrus greenhouse', 'Citrus house', 'Climacteric', 'Climbers', 'Clone selection', 'Cola nut', 'Cola tree', 'Cold-storage facilities', 'Cold-tolerant', 'Coleopterans', 'Colorado beetle', 'Common apricot', 'Common bird cherry', 'Common cypress', 'Common hollyhock', 'Common honey-locust', 'Common horse-chestnut', 'Common jujube', 'Common medlar', 'Common olive', 'Common peach', 'Common plum', 'Common quince', 'Common walnut', 'Common white jasmine', 'Compound winter bud', 'Concentrated fertilizers', 'Conifers', 'Conservatory', 'Contrasting characters', 'Copper-lime mixture', 'Coryneum blight', 'Crested celosia', 'Crop harvesting', 'Cross-fertilization', 'Cruciferae', 'Cultivar testing', 'Cultivar-specific', 'Cultivated apple', 'Cultivated garlic', 'D-glucose', 'Daffodil', 'Dahlia', 'Decorative', 'Decorative horticulture', 'Decorative plants', 'Dendropark', 'Depth of irrigation', 'Detached scion grafting', 'Dextrose', 'Dicots', 'Dicotyledons', 'Disease process', 'Dogrose', 'Donut peach', 'Dormant pruning', 'Dormant-season pruning', 'Double grafting', 'Double raceme', 'Doucin rootstock', 'Doughnut peach', 'Dried grape', 'Dried plum', 'Drupes', 'Dwarf elm', 'Dwarf quince', 'Dwarf rootstock', 'Eastern plane', 'Edible fig', 'Elderberry', 'English lilac', 'Epicarp', 'Epicormic shoots', 'Essential-oil-bearing roses', 'European bird cherry', 'European black pine', 'European cabbage white', 'European gooseberry', 'European horse-chestnut', 'European medlar', 'European olive', 'European pear psylla', 'European plum', 'European raspberry', 'European snowball viburnum', 'European spruce', 'European vine moth', 'Everbearing', 'Eye', 'Facultative saprophytes', 'Fall plowing', 'False acacia', 'False fruit', 'Fertiliser (BrE)', 'Fertilizer application through irrigation', 'Fertilizer rate', 'Field storage clamp', 'Fig', 'Fig leaf roller', 'Fig moth', 'Fig plantation', 'Fig-leaf skeletoniser', 'Floral bud', 'Floral shears', 'Floral snips', 'Flower', 'Flower cluster', 'Flower cultivation', 'Flower stalk', 'Flower thinning', 'Fluid fertilizers', 'Foliar fertilization', 'Foliar necrosis', 'Formal compositions', 'French lilac', 'Fruit Preserve', 'Fruit culture', 'Fruit jelly', 'Fruit nursery', 'Fruit sugar', 'Fruit tree spider mite', 'Fruit-bearing branches', 'Fruiting', 'Furrow', 'F₁ hybrid seed', 'Gall', 'Garden hoe', 'Garden strawberry', 'Garden turnip', 'German chamomile', 'Germination percentage', 'Giant waterlily', 'Glasshouse', 'Goat-leaf honeysuckle', 'Golden rain tree', 'Grape berry moth', 'Grape bunch', 'Grape fruit moth', 'Grape grower', 'Grape growing', 'Grape pip', 'Grape powdery mildew', 'Grape wine', 'Grapevine phylloxera', 'Grapevine powdery mildew', 'Grasshoppers', 'Green plum', 'Greenhouse cultivation', 'Greenhouse farming', 'Greenhouse plants', 'Greening', 'Greens', 'Greenwood grafting', 'Grey cabbage aphid', 'Growth retardant', 'Gum', 'Gumming', 'Hand hoeing', 'Hand pruners', 'Head cabbage', 'Heater-based frost protection', 'Hedging', 'Hot pepper', 'Hybrid vigor', 'Hydro-edaphic factors', 'Hygrophilous plants', 'Immune variety', 'Informal landscape style', 'Inorganic fertilizers', 'Insect science', 'Insect-pollinated plants', 'Insecticidal agents', 'Intensive orchards', 'Interparticle porosity', 'Interstock grafting', 'Irrigation dose', 'Irrigation furrow', 'Isopterans (traditional taxonomic term)', 'Italian cypress', 'Italian poplar', 'Japanese flowering quince', 'Japanese quince', 'Jessamine', 'Jujube fruit fly', 'June beetles', 'June bugs', 'Juniper woodland', 'Juvenile phase', 'Kaki', 'Kaki persimmon', 'Kolomikta vine', 'Lacewings', 'Lateral bud', 'Leaf abscission', 'Leaf stalk', 'Leafy greens', 'Lemon', 'Lepidopterans', 'Level and smooth the soil', 'Levulose', 'Light-demanding plants', 'Lilac', 'Lily tree', 'Little-leaf linden', 'Littleleaf linden', 'Localized enlargement', 'Long narrow flower bed', 'Main branches', 'Male gamete', 'Mandarin orange', 'Marvel of Peru', "Maule's quince", 'May beetles', 'May-tree', 'Meadow orcharding', 'Mealy cabbage aphid', 'Medium-maturing', 'Medlar', 'Medulla', 'Meristematic tissue', 'Mexican lime', 'Microelements', 'Microfertilizers', 'Micropropagation', 'Mid-maturing', 'Mignonette tree', 'Mineral substances', 'Miticides', 'Mn fertilizers', 'Monilinia brown rot', 'Moniliosis', "Monk's pepper", 'Monocropping', 'Monoecious species', 'Morphological characters', 'Mountain ash', 'Mulberries', 'Mulberry cultivation', 'Mulberry orchard', 'Musaceae', 'Mustard family', 'Mycoplasma-like organisms (MLOs', 'Naked magnolia', 'Narcobiosis', 'Narrow-leaf oleaster', 'Native plants', 'Naturalistic garden style', 'Nectar gland', 'Nitrate of soda', 'Non-fruiting', 'Noncambial roots', 'Normal atmosphere storage (NA)', 'North American redbud', 'Nursery', 'Nursery stock', 'Nutritional value', 'Obligate biotrophs', 'Obligatory parasites', 'Oenology', 'Offspring', 'Oidium', 'Olive grove', 'Olive scale', 'Ontogenesis', 'Orange', 'Orchard smoking', 'Oriental persimmon', 'Packing', 'Palmette system', 'Parasitic angiosperms', 'Parks and gardens', 'Partial ripeness', 'Pasteurisation (BrE)', 'Pea-tree', 'Pear and cherry slugworm', 'Pear psyllid', 'Pear sawfly', 'Pear tingid', 'Pekmez', 'Perennials', 'Perfoliate honeysuckle', 'Pergola system', 'Perianthium', 'Permanent apple aphid', 'Permanent storage structures', 'Pernicious scale', 'Persian walnut', 'Phenological monitoring', 'Phosphate element', 'Phosphate fertilizers', 'Phosphate-containing', 'Phosphatic fertilizers', 'Photoperiodicity', 'Photophilic', 'Photophilous plants', 'Phreatic water', 'Physical loss', 'Phytopathogen', 'Phytopathological examination', 'Phytosanitary laboratory', 'Phytotomy', 'Pinch', 'Pinks', 'Planipennia', 'Plant Pathology', 'Plant Terrarium', 'Plant bud', 'Plant epidemic', 'Plant growth', 'Plant growth regulators (PGRs)', 'Plant hair', 'Plant hormones', 'Plant introduction nursery', 'Plant lice', 'Plant nursery production', 'Plant sap', 'Plant-feeding insects', 'Planting seed', 'Planting time', 'Plough (BrE)', "Poet's jasmine", "Poet's jessamine", 'Pollard knuckle', 'Pollen parent', 'Pomegranate moth', 'Pomegranate plantation', 'Pomes', 'Postgenerative period', 'Postharvest storage technology', 'Pot culture method', 'Potash fertilizers', 'Potato cultivation', 'Potato farming', 'Powdery mildew of peach', 'Preventive actions', 'Preventive practices', 'Privet', 'Productive', 'Proterogyny', 'Protuberance', 'Prune moth', 'Pruning paint', 'Pruning shears', 'Pseudocarp', 'Punicaceae', 'Pyrene', 'Quality loss', 'Quickthorn', 'Quince plantation', 'Reach maturity', 'Red date', 'Red juniper', 'Red plum maggot', 'Red raspberry', 'Redbud', 'Refrigerated stores', 'Rejuvenating pruning', 'Rejuvenescence', 'Renovation pruning', 'Resistance to disease', 'Respiration climacteric', 'Rhizoctonia root disease', 'Ribbon flower bed', 'Rind grafting', 'Rockery', 'Root vegetables', 'Rootstock-scion compatibility', 'Rosa canina fruit', 'Rose bay', 'Rose moss', 'Rosehip', 'Rosmarina Bianca apple cultivar', 'Rotational cropping', 'Roundworms', 'Saccharose', 'Sage', 'Salinity tolerance', 'Sandthorn', 'Sanitation pruning', 'Saprobe', 'Saprophyte', 'Savin', 'Scab', 'Sciophilous', 'Scolytine beetles', 'Scorch', 'Scotch pine', 'Sea buckthorn berry', 'Seabuckthorn', 'Seed parent', 'Seed scarification', 'Seed storehouse', 'Self-digestion', 'Self-pollination', 'Self-unfruitful', 'Semelparous plants', 'Semi-open drying shed', 'Semishrubs', 'Shelterbelt trees', 'Shield budding', 'Shoot pinching', 'Shoot trimming', 'Short-horned grasshoppers', 'Shot-hole of stone fruit', 'Shothole blight', 'Sierra redwood', 'Silverberry family', 'Simple sugars', 'Single-flowered plants', 'Slender magnolia', 'Small cabbage white', 'Small leaf lime tree', 'Small white', 'Smudging', 'Snowball tree', 'Soda niter', 'Soft scale insects', 'Soil ball', 'Soil leveler', 'Soil tillage', 'Sowing seed', 'Specimen', 'Spiraea', 'Split grafting', 'Split-root system', 'Spray irrigation', 'Spring ploughing', 'Spring radish', 'Sprout', 'Stock', 'Stratification (seed)', 'Sub-irrigation', 'Sub-scaffold branches', 'Succulent plants', 'Sucker', 'Suffrutices', 'Sulfur-containing fertilizers', 'Sulphur', 'Summer jasmine', 'Summer radish', 'Suspended animation', 'Sweet locust', 'Sweet-cherry spider mite', 'Syrian privet', 'T trellis', 'Tagetes', 'Tart', 'Tart cherry', 'Tart cherry fruit', 'Technological characteristics', 'Temporary storage facilities', 'Ten-lined potato beetle', 'Ten-striped spearman', 'Testcross', 'Thermophilous', 'Thin', 'Thornapple', 'Thysanopterans', 'To leaf', 'Transport fine roots', "Traveller's palm", 'Tree and shrub mass', 'Tree wound dressing', 'Trial field', 'Trickle irrigation', 'True bugs', 'True flies', 'True jasmine', 'Tulip poplar', 'Tuliptree', 'Typical aphids', 'Undershrubs', 'Understock', 'Uniflorous plants', 'Unripe apricot', 'Ureaform fertilizers', 'Value in use', 'Variety replacement', 'Vascular wilt disease', 'Vase-shaped system', 'Vegetable cultivation', 'Vegetable growing', 'Vegetable production', 'Vegetative reproduction', 'Vegetatively propagated rootstock', 'Vertical landscaping', 'Victoria regia', 'Vine', 'Vine arbor', 'Vine growing', 'Vine moth', 'Vine pruning', 'Viral diseases', 'Virginia red cedar', 'Virginile ontogenetic state', 'Vitex', 'Void fraction', 'Walnut grove', 'Walnut moth', 'Water cascade', 'Watershoots', 'Weedkillers', 'West Indian lime', 'Whortleberry', 'Wilt disease', 'Wind-dispersed plants', 'Wind-pollinated plants', 'Wisteria', 'Y-trellis', 'Yellowing', 'Yulan', 'air storage', 'apple tree', 'brown apple mite', 'bryobia mite', 'coccids', 'common pear psyllid', 'historical)', 'host resistance to diseases', 'pear bryobia', 'pear sucker', 'pearlace bug', 'yellow poplar')
+_UZBEK_SYNONYMS = ('-', 'Abiotik faktorlar', 'Achchiq apelsin', 'Achchiq qalampir', 'Agrokimyoviy laboratoriya', 'Agrotexnik usul', 'Ajdargul', 'Alligator noki', 'Amerika lola daraxti', 'Ammiakli selitra', 'Anemofillar', 'Anemoxorlar', 'Anjir bog‘i', 'Anor bog‘i', 'Anor mevaxo‘ri', 'Anorganik omillari', 'Anorlar oilasi', 'Aralash gulzor', 'Archa o‘rmoni', 'Arg‘uvon', 'Asosiy shoxlar', 'Atirguldoshlar', 'Atmosfera namligi', 'Autoliz', 'Bachki novdalar', 'Bachkilamoq', 'Balx tut', 'Barg burishishi', 'Barg chiqarmoq', 'Barg kovlovchi kuyalar', 'Barg orqali oziqlantirish', 'Barg tashlash', 'Bargda mina yasovchi kuyalar', 'Bargini to‘kuvchi daraxt', 'Baxmalgul', 'Behi bog‘i', 'Behosil', 'Bel', 'Beorgul', 'Binafsha tusli qalqondor', 'Biologik kurash', 'Biologik laboratoriya', 'Biologik nazorat', 'Biopreparatlar', 'Biotroflar', 'Bir gullilar', 'Bir uylilar', 'Bir yilliklar', 'Birlamchi urug‘chilik', 'Biryuchina', 'Boboi', 'Bodom bog‘i', 'Bog‘ anjomlari', 'Bog‘ asbob-uskunalari', 'Bog‘ surtkisi', 'Bog‘-tok qator oralari ekinlari', 'Bog‘bonlik', 'Bog‘chi', 'Bog‘lar va parklar', 'Bog‘ni isitish', 'Bog‘ni tutunlatish', 'Boldirg‘on', 'Bolut', 'Bordo aralashmasi', 'Bosh karam', 'Bosh piyoz', 'Bo‘rli o‘g‘itlar', 'Bo‘tako‘z', 'Buldurg‘un', 'Buzina', 'Chalabutalar', 'Chatishtirmoq', 'Chechak', 'Chili selitrasi', 'Chilon', 'Chimzor', 'Chirindi', 'Chirmashib o‘suvchi o‘simliklar', 'Chirmovgul', 'Choy-duragay atirgullar', 'Danakli daraxtlar', 'Danakmevalilar', 'Daraxt qobig‘i', 'Daraxt-buta massivi', 'Daraxtshunoslik', 'Dastlabki urug‘chilik', 'Dekorativ bog‘dorchilik', 'Dekorativ o‘simliklar', 'Dekstroza', 'Dendrariy', 'Dendrologik bog‘', 'Dioekik o‘simliklar', 'Dovcha', 'Duragay', 'Duragay quvvati', 'Duragaylamoq', 'Duragaylash', 'Dusen payvandtagi', 'Duvarak novdalar', 'Duzen', 'Egat olmoq', 'Egatlab ekish', 'Egatlab sug‘orish', 'Ekish vaqti', 'Embrion', 'Enologiya', 'Entomotsidlar', 'Enzimlar', 'Epikarp', 'Fakultativ saprofitlar', 'Faol ildizlar', 'Fasl', 'Fitotomiya', 'Fiziologik tinim', 'Florikultura', 'Formal kompozitsiyalar', 'Fosfatli o‘g‘itlar', 'Fosfor elementi', 'Fotoperiodizm', 'Geksaxlorsiklogeksan (HCH)', 'Geliofitlar', 'Generativ', 'Generativ kurtak', 'Georgina', 'Gibrid', 'Gibrid quvvati', 'Gibrid urug‘', 'Gibridizatsiya', 'Gibridlash', 'Gibridlashtirmoq', 'Gigant sekvoyyadendron', 'Gilos bog‘i', 'Gleditsiya', 'Glitsiniya', 'Gorizontal parxishlash', 'Granulalash', 'Grek yong‘og‘i', 'Gul ochmoq', 'Gul toji', 'Gulasal', 'Gulbog‘', 'Gulg‘uncha', 'Gullash bosqichi', 'Gullash fazasi', 'Gunafsha', 'G‘aynoli', 'Hamisha yashil daraxt', 'Hasharotlarga qarshi preparatlar', 'Hasharotshunoslik', 'Havo muhitida saqlash', 'Himoya daraxtlari', 'Hoshiya qanotlilar', 'Hosil novdasi', 'Hosil qiluvchi to‘qima', 'Hosil shoxlari', 'Hosildor', 'Hosilni yig‘ishtirish', 'Hujayra muhandisligi', 'Ignabarglilar', 'Ikki urug‘pallalilar', 'Ikki uylilar', 'Ildiz komi', 'Ildiz tuklari', 'Ildizmevali ekinlar', 'Ildizmevalilar guruhi', 'Ilono‘ti', 'Individual rivojlanish', 'Iris', 'Isitish orqali sovuqdan himoyalash', 'Issiqsevar', 'Issiqxona ekinlari', 'Jadal', 'Jo‘yak', 'Jo‘yak usulida ekish', 'Jumrutsimon chakanda', 'Kalibrlovchi mashinalar', 'Kaliks', 'Kalina', 'Kallak urmoq', 'Kallaklangan', 'Kallus', 'Kapalaklar', 'Kaprifol', 'Karantin laboratoriyasi', 'Karpel', 'Kartoshka qo‘ng‘izi', 'Kartoshka yetishtirish', 'Kasallik jarayoni', 'Keng bargli daraxt', 'Keng yaproqli daraxt', 'Kichik ariq', 'Kimyoviy kurash usuli', 'Klimaks', 'Klimakterik davr', 'Klimakterik yuksalish', 'Klontashtirish', 'Kola urug‘i', 'Kolomikta', 'Kompost tayyorlamoq', 'Korolla', 'Kosmos guli', 'Ko‘chat yetishtirish', 'Ko‘chirib ekmoq', 'Ko‘k vasilek', 'Ko‘katlar', 'Ko‘p urug‘li', 'Ko‘p yilliklar', 'Ko‘z payvand', 'Krestgullilar', 'Ksenogamiya', 'Kuchaytirilgan', 'Kuzgi haydash', 'Landshaft kompozitsiyasi', 'Landshaft uslubi', 'Leman zarpechagi', 'Levuloza (eskirgan ilmiy nom)', 'Manzarali', 'Marmarak', 'Marvak tut', 'Mavrak', 'Mavsumiy omborlar', 'Mayda bargli qayrag‘och', 'Maysazor', 'Meva beruvchi', 'Meva kurtagi', 'Mevali o‘simliklar ko‘chatzori', 'Mexanik kurash', 'Mikoplazmasimon organizmlar (MLO', 'Mikroklonal ko‘paytirish', 'Mikronutrientlar', 'Miqdoriy yo‘qotish', 'Mis-ohak aralashmasi', 'Mochevina', 'Modulli bog‘-chaman', 'Mola bosmoq', 'Moychechak', 'Nafas olish jarayoni', 'Nastarin', 'Natriy nitrat', 'Nav sinovi', 'Nektar bezi', 'Nok bog‘i', 'Nok shira burgasi', 'Oddiy bodrezak', 'Oddiy olcha', 'Oftobda quritish', 'Og‘izcha', 'Okulirovka', 'Olcha bog‘i', 'Oldini olish tadbirlari', 'Oleandr', 'Olhirot', 'Olma bog‘i', 'Olma qandalasi', 'Olma va nok un-shudringi', 'Olu', 'Olxo‘ri qurti', 'Ommaviy tanlash', 'Ona shakl', 'Oq akatsiya', 'Oq pashsha', 'Organik omillar', 'Ot kashtani', 'Ota shakl', 'Oziq-ovqatlik qiymati', 'Oziqaviy qiymati', 'O‘g‘it bermoq', 'O‘g‘it me’yori', 'O‘g‘it solmoq', 'O‘lchamiga qarab xillash', 'O‘rik bog‘i', 'O‘simlik bitlari', 'O‘simlik gormonlari', 'O‘simlik kasalliklari epidemiyasi', 'O‘simliklar karantini', 'O‘simliklar patologiyasi', 'O‘simlikni ajratilgan muhitda oziqlantirish', 'O‘simlikxo‘r hasharotlar', 'O‘sish nuqtalari', 'O‘sish regulyatorlari', 'O‘sish retardanti', 'O‘suv davri', 'O‘suvchi shoxlar', 'O‘tloq qandalasi', 'O‘z-o‘zidan changlanish', 'Pakana meva daraxtlari', 'Pakana qayrag‘och', 'Parazit gulli o‘simliklar', 'Parsha', 'Parterli gulzor', 'Parvarish qilmoq', 'Pashshalar', 'Past bo‘yli daraxtlar bog‘i', 'Past bo‘yli meva daraxtlari', 'Past bo‘yli payvandtag', 'Patogen', 'Payvand qilingan', 'Payvand qilmoq', 'Pekan yong‘og‘i', 'Periant', 'Pishmagan', 'Pishmagan meva', 'Pista bog‘i', 'Pitomnik', 'Piyozboshli o‘simliklar', 'Plastinali kurtak payvand', 'Pog‘onali sharshara', 'Polen', 'Pona payvand', 'Po‘stloq ostiga payvand', 'Po‘stloqxo‘r qo‘ng‘izlar', 'Profilaktik chora-tadbirlar', 'Proteroginiya', 'Qabariq', 'Qalamcha payvand', 'Qalampir', 'Qandalalar', 'Qandil', 'Qarama-qarshi belgilar', 'Qarama-qarshilik', 'Qayta tiklanish', 'Qishloq xo‘jaligi kimyosi', 'Qora smorodina', 'Qoraqat', 'Qo‘ng‘izlar', 'Qo‘sh payvand', 'Qo‘shqanotlilar', 'Quraga', 'Quritilgan olma', 'Quritilgan olxo‘ri', 'Quritilgan o‘rik', 'Quritilgan uzum', 'Quyoshda quritish', 'Ranglar mutanosibligi', 'Ranglar uyg‘unligi', 'Ra’nodoshlar', 'Reproduktiv shoxlar', 'Respiratsiya', 'Rezavorfurush', 'Rezavorlar', 'Rizoktonioz', 'Sabzavotchi', 'Samarali harorat', 'Saprob', 'Saprofit', 'Sapsargul', 'Seleksion ko‘chatzor', 'Seleksiyachi', 'Seleksiyachilik', 'Semiz o‘tlar', 'Senoanabioz', 'Serbarg', 'Serhosil', 'Serunum', 'Serunum tuproq', 'Shaftoli un-shudringi', 'Shalfey', 'Shamol orqali tarqaluvchi o‘simliklar', 'Shamol to‘suvchi daraxtlar', 'Sharob', 'Sharobbop uzum', 'Sharq xurmosi', 'Shiradon', 'Shirador', 'Shisha bog‘', 'Shox chiqarmoq', 'Shox otmoq', 'Shoxlamoq', 'Sho‘rlanishga chidamlilik', 'Shudgorlamoq', 'Sifat o‘zgarishidagi yo‘qotish', 'Sifati me’yorlari', 'Sitrus issiqxonasi', 'Sitruslar', 'Siyraklab ko‘chirib o‘tkazish', 'Siyraklashtirmoq', 'Smorodina', 'Sovun daraxti', 'Sovuqbardosh', 'Sovuqqa bardoshli', 'Sovutgichli omborlar', 'Soxta kashtan', 'Soyabardosh', 'Soyaga bardoshli', 'So‘lish kasalligi', 'Spireya', 'Statsionar omborlar', 'Stoma', 'Subirrigatsiya', 'Sug‘orish normasi', 'Sug‘orish orqali o‘g‘itlash', 'Sug‘orish shoxobchalari', 'Sug‘orish sistemasi', 'Supurgi kelreyteriya', 'Suv-tuproq omillari', 'T-simon payvand', 'T-simon simbag‘az', 'Tahliliy chatishtirish', 'Tanidlar', 'Tasma gulzor', 'Temperatura', 'Teplitsa', 'Teplitsa xo‘jaligi', 'Teshikli dog‘lanish', 'Tik ildizlar', 'Tik ko‘kalamzorlashtirish', 'Tikanli gleditsiya', 'Tinish holati', 'Tirak', 'Tirgak', 'Tojbarg', 'Tok fillokserasi', 'Tok qaychisi', 'Tok un-shudringi', 'Tokchilik', 'Tokni butash', 'Tokning un-shudring kasalligi', 'Tokshunoslik', 'Tokzor', 'Tolerantlik', 'Toshli bog‘', 'To‘pgul', 'Trixoma', 'Tub o‘simliklar', 'Tubulg‘a', 'Tukcha', 'Tuksiz shaftoli', 'Tumanli sug‘orish', 'Tuproq chirindisi', 'Tuproq kislotaliligi', 'Tuproq komi', 'Tuproqqa ishlov berish', 'Tut bog‘i', 'Tutun bilan sovuqdan himoyalash', 'Uch tikanli gleditsiya', 'Unabi', 'Unib chiqmoq', 'Unifatsial barg', 'Unnobi', 'Unobi pashshasi', 'Unshudring kasalligi', 'Urug‘ hosil qilmoq', 'Urug‘ ko‘chatzori', 'Urug‘chi tumshuqchasi', 'Urug‘chi ustunchasi', 'Urug‘chibarg', 'Urug‘lanishsiz meva hosil bo‘lishi', 'Urug‘murtak', 'Urug‘ni skarifikatsiyalash', 'Uyg‘un', 'Uzib olmoq', 'Uzum donasi', 'Uzum fillokserasi', 'Uzum kuyasi', 'Uzumchilik', 'Uzumxo‘r qurt', 'Uzumzor', 'Valish', 'Vaqtinchalik omborlar', 'Vazasimon shakl', 'Vegetativ ko‘paytirish', 'Vegetativ kurtak', 'Vegetativ payvandtag', 'Vegetativ shoxlar', 'Vegetatsion tajriba usuli', 'Ventilyatsiya', 'Vertikal parxishlash', 'Vertitsillyoz vilt', 'Xayri', 'Xazonrezgi', 'Xillash', 'Xom', 'Xom meva', 'Xo‘jag‘at', 'Yagana qilmoq', 'Yakka ziroatchilik', 'Yakkaxon o‘simlik', 'Yapon behisi', 'Yaproq', 'Yaproq bandi', 'Yarim ochiq quritish bostirmasi', 'Yaruslik', 'Yashil olma biti', 'Yashil o‘g‘it ekini', 'Yashil sarv', 'Yashillashtirish', 'Yassi shaftoli', 'Yelim oqishi', 'Yerli', 'Yertana', 'Yevropa qoraqarag‘ayi', 'Yong‘oq mevaxo‘ri', 'Yoppasiga sug‘orish', 'Yorma payvand', 'Yoshartiruvchi kesish', 'Yoshlik davri', 'Yotiq ildizlar', 'Yovvoyi atirgul', 'Yovvoyi jiyda', 'Yozgi butash', 'Yo‘g‘on poyali zarpechak', 'Yumaloq chuvalchanglar', 'Yuqori konsentratsiyali o‘g‘itlar', 'Yuqori zichlikdagi bog‘lar', 'Yuqumli kasalliklar', 'Yuqumsiz kasalliklar', 'Yuraksimon jo‘ka', 'Zamburug‘li kasalliklar', 'Zang kanasi', 'Zantedeskiya', 'Ziyonkor hasharotlar', 'anor kuyasi', 'bir o‘lchamga keltirish', 'nordon olcha', 'po‘stloq osti qo‘ng‘izlari', 'shaxsiy rivojlanish', 'tarixiy nom)', 'teshikchali dog‘lanish')
+
+def _related_term_language(term):
+    """Choose the card language for links when legacy relations lack a language field."""
+    import re
+    value = _normalize_term(term)
+    if not value:
+        return 'uz'
+    if value in {_normalize_term(x) for x in _ENGLISH_SYNONYMS}:
+        return 'en'
+    if value in {_normalize_term(x) for x in _UZBEK_SYNONYMS}:
+        return 'uz'
+    # Explicit aliases from the bilingual source dataset.
+    if value in {'soil tillage', 'native plants'}:
+        return 'en'
+    # Match a stored English headword first.
+    for entry in Word.query.filter(Word.translation_en.isnot(None)).all():
+        if _normalize_term(entry.translation_en) == value:
+            return 'en'
+    # Existing data_sync merges synonyms_uz and synonyms_en in one relation table.
+    # Recognize English phrases; otherwise default to Uzbek.
+    english_words = set('soil tillage native plants plant crop crops cultivation agriculture agricultural tree trees fruit fruits garden gardening water irrigation root roots seed seeds growing growth field fields fertilizer fertilizers chemical chemistry analysis laboratory protection control pest pests biology biological flowers flower leaf leaves grape grapevine orchard horticulture method technique system production management organic mineral genetic genetics breeding winter bud season farming treatment land greenhouse compost harvesting'.split())
+    words = set(re.findall(r'[a-z]+', value))
+    if words & english_words and not any(ch in value for ch in "o‘gʻq‘"):
+        return 'en'
+    return 'uz'
+
+
+@app.template_filter('related_lang')
+def related_lang_filter(term):
+    return _related_term_language(term)
+
+
+@app.route('/related-term/<path:term>')
+def related_term(term):
+    """Resolve a related term to its own dictionary entry, in Uzbek or English."""
+    from sqlalchemy import func
+    from urllib.parse import unquote
+
+    term = unquote(term).strip()
+    target = _find_word_by_url_term(term)
+    if target is None:
+        # English names are stored in translation_en, not in Word.word.
+        target = Word.query.filter(
+            func.lower(func.trim(Word.translation_en)) == term.lower(),
+            ~Word.word.startswith('_category_placeholder_')
+        ).order_by(Word.id).first()
+    if target is None:
+        normalized = _normalize_term(term)
+        for candidate in Word.query.filter(
+            Word.translation_en.isnot(None),
+            ~Word.word.startswith('_category_placeholder_')
+        ).order_by(Word.id):
+            if _normalize_term(candidate.translation_en) == normalized:
+                target = candidate
+                break
+    if target is None:
+        # Synonyms and other semantic labels can be aliases rather than separate entries.
+        # Resolve the alias to the owner entry without changing the database schema.
+        normalized = _normalize_term(term)
+        relation_models = (
+            WordSynonym, WordAntonym, WordHyperonym, WordHyponym,
+            WordHolonym, WordMeronym, WordHomonym, WordParonym,
+        )
+        for relation_model in relation_models:
+            if target is not None:
+                break
+            for relation in relation_model.query.all():
+                raw = relation.related_word or ''
+                # A relation can contain several labels separated by semicolons.
+                labels = [part.strip() for part in raw.split(';')]
+                if any(_normalize_term(label) == normalized for label in labels):
+                    owner = db.session.get(Word, relation.word_id)
+                    if owner and not owner.word.startswith('_category_placeholder_'):
+                        target = owner
+                        break
+    if target is None:
+        return render_template('404.html', word_query=term, suggestions=[]), 404
+    requested_lang = request.args.get('lang')
+    inferred_lang = _related_term_language(term)
+    # Legacy links may incorrectly pass lang=uz for an English synonym.
+    # Correct known English aliases rather than showing the Uzbek card.
+    if _normalize_term(term) in {'soil tillage', 'native plants'}:
+        requested_lang = 'en'
+    if requested_lang not in ('uz', 'en'):
+        requested_lang = inferred_lang
+    return redirect(url_for('word_detail', word=target.word, lang=requested_lang))
+
+
 @app.route('/word/<path:word>')
 def word_detail(word):
     try:
@@ -200,7 +343,7 @@ def word_detail(word):
             'qollanilishi': [area.area for area in db_word.usage_areas],
             'etimologiyasi': [db_word.etymology] if db_word.etymology else []
         }
-        return render_template('word_detail.html', word=db_word.word, data=data)
+        return render_template('word_detail.html', word=db_word.word, data=data, card_lang=request.args.get('lang') if request.args.get('lang') in ('uz', 'en') else ('en' if session.get('dictionary_direction') == 'en-uz' else 'uz' if session.get('dictionary_direction') == 'uz-en' else 'both'))
     except Exception as exc:
         db.session.rollback()
         app.logger.exception('word_detail failed for %r: %s', word, exc)
@@ -857,6 +1000,9 @@ def inject_globals():
 
     authenticated = bool(getattr(current_user, 'is_authenticated', False))
     return dict(
+        site_lang=session.get('site_lang', 'uz'),
+        dictionary_direction=session.get('dictionary_direction', ''),
+        session_language_explicit=('site_lang' in session),
         is_admin=authenticated and bool(getattr(current_user, 'is_admin', False)),
         total_words=total_words,
         total_categories=total_categories,
