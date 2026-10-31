@@ -22,12 +22,13 @@
     </div>
 
     <!-- Заголовок слова -->
-    <h1 class="main-word-title">{{ word }}</h1>
+    <h1 class="main-word-title">{{ data.translation_en if card_lang == 'en' and data.translation_en else word }}</h1>
 
     <!-- Основной двухколоночный макет -->
-    <div class="word-grid">
+    <div class="word-grid{% if card_lang in ('uz', 'en') %} single-language{% endif %}">
 
         <!-- ЛЕВАЯ КОЛОНКА (O'ZBEKCHA) -->
+        {% if card_lang != 'en' %}
         <div class="column-card">
             <div class="column-header">
                 <span class="flag-icon">🇺🇿</span> O'ZBEKCHA
@@ -79,7 +80,7 @@
 
             <div class="row-item">
                 <span class="row-label">Sinonimlar</span>
-                <span class="row-value">{{ data.синонимы|join(', ') if data.синонимы else '-' }}</span>
+                <span class="row-value">{% if data.синонимы %}{% for term in data.синонимы %}<a href="{{ url_for('related_term', term=term, lang=term|related_lang) }}" class="soha-link">{{ term }}</a>{% if not loop.last %}, {% endif %}{% endfor %}{% else %}-{% endif %}</span>
             </div>
 
             <!-- Если у вас есть поле для научного названия, раскомментируйте:
@@ -89,7 +90,9 @@
             </div> -->
         </div>
 
+        {% endif %}
         <!-- ПРАВАЯ КОЛОНКА (ENGLISH) -->
+        {% if card_lang != 'uz' %}
         <div class="column-card">
             <div class="column-header">
                 <span class="flag-icon">en</span> ENGLISH
@@ -153,7 +156,7 @@
 
             <div class="row-item">
                 <span class="row-label">Synonyms</span>
-                <span class="row-value">{{ data.синонимы|join(', ') if data.синонимы else '-' }}</span>
+                <span class="row-value">{% if data.синонимы %}{% for term in data.синонимы %}<a href="{{ url_for('related_term', term=term, lang=term|related_lang) }}" class="soha-link">{{ term }}</a>{% if not loop.last %}, {% endif %}{% endfor %}{% else %}-{% endif %}</span>
             </div>
 
             <!-- Раскомментируйте если добавите научное название на английском
@@ -163,6 +166,7 @@
             </div> -->
         </div>
 
+        {% endif %}
         <!-- БЛОК С КАРТИНКОЙ ВНИЗУ (во всю ширину) -->
         {% if data.image_url %}
         <div class="image-block">
@@ -258,6 +262,8 @@
     gap: 2rem;
     margin-bottom: 2rem;
 }
+
+.word-grid.single-language { grid-template-columns: minmax(0, 1fr); }
 
 @media (max-width: 768px) {
     .word-grid {
