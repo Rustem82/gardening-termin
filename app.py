@@ -16,22 +16,51 @@ app = Flask(__name__)
 app.config.from_object(Config)
 
 
+@lru_cache(maxsize=1)
+def _uploaded_image_names():
+    """Map uploaded filenames for case-insensitive lookup (once per process)."""
+    uploads_dir = Path(app.static_folder) / 'uploads'
+    if not uploads_dir.is_dir():
+        return {}
+    return {item.name.casefold(): item.name for item in uploads_dir.iterdir()
+            if item.is_file() and item.suffix.lower() in ('.jpg', '.jpeg', '.png', '.webp')}
+
+
 def get_term_image(term, image_url=None):
-    """Return the stored image URL or locate an uploaded image by term name."""
-    existing_url = str(image_url or '').strip()
-    if existing_url:
-        return existing_url
+    """Use an existing image, or find one using a term's short, hyphenated name."""
+    import re
+    from urllib.parse import unquote
 
     uploads_dir = Path(app.static_folder) / 'uploads'
-    term = str(term or '').strip()
-    if not term or '/' in term or "\\" in term or term in ('.', '..'):
-        return ''
+    existing_url = str(image_url or '').strip()
 
-    for extension in ('.jpg', '.jpeg', '.png', '.webp', '.JPG', '.JPEG', '.PNG', '.WEBP'):
-        filename = f'{term}{extension}'
-        if (uploads_dir / filename).is_file():
-            return url_for('static', filename=f'uploads/{filename}')
-    return ''
+    # Preserve working external URLs and existing local image links.
+    if existing_url:
+        local_prefix = '/static/uploads/'
+        if not existing_url.startswith(local_prefix):
+            return existing_url
+        existing_name = unquote(existing_url[len(local_prefix):])
+        if (uploads_dir / existing_name).is_file():
+            return existing_url
+
+    term = str(term or '').strip()
+    if not term or '/' in term or '\\' in term:
+        return existing_url
+
+    # Example: 'Doim yashil sarv (Cupressus sempervirens L.)'
+    # -> 'Doim-yashil-sarv.jpg'.
+    short_term = re.sub(r'\s*\([^)]*\)', '', term).strip()
+    candidates = [term, short_term, re.sub(r'\s+', '-', short_term)]
+    filenames = _uploaded_image_names()
+    for candidate in candidates:
+        if not candidate:
+            continue
+        for extension in ('.jpg', '.jpeg', '.png', '.webp'):
+            filename = filenames.get((candidate + extension).casefold())
+            if filename:
+                return url_for('static', filename=f'uploads/{filename}')
+    return existing_url
+
 
 # Site interface language is independent from the language of an individual alias.
 @app.route('/set-language/<lang>')
