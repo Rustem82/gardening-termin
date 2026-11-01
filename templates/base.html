@@ -1230,13 +1230,14 @@
 
     document.addEventListener('DOMContentLoaded', function() {
         console.log('📄 Page loaded:', window.location.pathname);
-        loadStats();
+        // Only fetch stats when a statistics panel exists on this page.
+        if (document.getElementById('homeWordCount') || document.getElementById('topCategories')) loadStats();
     });
 
     let statsInterval = setInterval(() => {
         console.log('🔄 Updating stats...');
-        loadStats();
-    }, 60000);
+        if (!document.hidden && (document.getElementById('homeWordCount') || document.getElementById('topCategories'))) loadStats();
+    }, 300000);
 
     window.addEventListener('beforeunload', function() {
         if (statsInterval) {
