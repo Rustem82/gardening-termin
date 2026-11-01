@@ -912,7 +912,10 @@ function changeBackground() {
 
 // Предзагружаем все изображения при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
-    preloadImages();
+    // Load the first background immediately; load remaining images on demand.
+    const firstImage = new Image();
+    firstImage.src = backgrounds[0];
+    preloadedImages[0] = firstImage;
 
     // Устанавливаем первый фон с небольшой задержкой
     setTimeout(() => {
@@ -922,6 +925,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Запускаем слайдшоу (меняем фон каждые 7 секунд)
     setInterval(() => {
         currentBg = (currentBg + 1) % backgrounds.length;
+        if (!preloadedImages[currentBg]) {
+            const img = new Image();
+            img.src = backgrounds[currentBg];
+            preloadedImages[currentBg] = img;
+        }
         changeBackground();
     }, 7000);
 });
