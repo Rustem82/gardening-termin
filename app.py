@@ -10,9 +10,28 @@ from sqlalchemy.orm import selectinload
 import os
 import json
 from functools import lru_cache
+from pathlib import Path
 
 app = Flask(__name__)
 app.config.from_object(Config)
+
+
+def get_term_image(term, image_url=None):
+    """Return the stored image URL or locate an uploaded image by term name."""
+    existing_url = str(image_url or '').strip()
+    if existing_url:
+        return existing_url
+
+    uploads_dir = Path(app.static_folder) / 'uploads'
+    term = str(term or '').strip()
+    if not term or '/' in term or "\\" in term or term in ('.', '..'):
+        return ''
+
+    for extension in ('.jpg', '.jpeg', '.png', '.webp', '.JPG', '.JPEG', '.PNG', '.WEBP'):
+        filename = f'{term}{extension}'
+        if (uploads_dir / filename).is_file():
+            return url_for('static', filename=f'uploads/{filename}')
+    return ''
 
 # Site interface language is independent from the language of an individual alias.
 @app.route('/set-language/<lang>')
@@ -175,7 +194,7 @@ def _search_json(query, direction):
             'meronim': rel('meronyms_en' if language == 'en' else 'meronyms_uz'),
             'omonim': rel('homonyms_en' if language == 'en' else 'homonyms_uz'),
             'paronim': rel('paronyms_en' if language == 'en' else 'paronyms_uz'),
-            'image_url': entry.get('image_url') or '',
+            'image_url': get_term_image(uz, entry.get('image_url')),
         }
         rank = (0 if exact else 1 if any(_normalize_term(label).startswith(needle) for label, _ in hits) else 2)
         matches.append((rank, _normalize_term(uz), result))
@@ -345,7 +364,7 @@ def word_detail(word):
             'pronunciation': db_word.pronunciation,
             'part_of_speech_en': db_word.part_of_speech_en,
             'etymology_en': db_word.etymology_en,
-            'image_url': db_word.image_url,
+            'image_url': get_term_image(db_word.word, db_word.image_url),
             'turkumi': [cat.category for cat in db_word.categories],
             'синонимы': [syn.related_word for syn in db_word.synonyms],
             'антонимы': [ant.related_word for ant in db_word.antonyms],
