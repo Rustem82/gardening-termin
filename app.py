@@ -8,6 +8,8 @@ from data_sync import ensure_word_columns, sync_dataset
 from datetime import datetime
 from sqlalchemy.orm import selectinload
 import os
+import json
+from functools import lru_cache
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -100,99 +102,104 @@ def index():
                            alphabet=alphabet)
 
 
+# Read the packaged dictionary once per server process. Vercel's SQLite /tmp
+# database may be empty or ephemeral; search must not depend on it.
+@lru_cache(maxsize=1)
+def _dictionary_entries():
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'yangi.json')
+    with open(path, 'r', encoding='utf-8') as source:
+        entries = json.load(source)
+    if isinstance(entries, dict):
+        entries = entries.get('words', entries.get('data', []))
+    if not isinstance(entries, list):
+        raise ValueError('yangi.json must contain a list of dictionary records')
+    return [entry for entry in entries if isinstance(entry, dict)
+            and not str(entry.get('uzbek', '')).startswith('_category_placeholder_')]
+
+
+def _relation_list(value):
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip() and str(item).strip() != '-']
+    if not value or str(value).strip() in ('-', '—'):
+        return []
+    return [part.strip() for part in str(value).split(';') if part.strip() and part.strip() != '-']
+
+
+def _search_json(query, direction):
+    needle = _normalize_term(query)
+    if not needle:
+        return []
+    matches = []
+    for entry in _dictionary_entries():
+        uz = str(entry.get('uzbek') or '')
+        en = str(entry.get('english') or '')
+        uz_aliases = _relation_list(entry.get('synonyms_uz'))
+        en_aliases = _relation_list(entry.get('synonyms_en'))
+        # Also search other semantic relationships, without SQL round trips.
+        alias_keys = ('synonyms_uz', 'synonyms_en', 'antonyms_uz', 'antonyms_en',
+                      'hyperonyms_uz', 'hyperonyms_en', 'hyponyms_uz', 'hyponyms_en',
+                      'holonyms_uz', 'holonyms_en', 'meronyms_uz', 'meronyms_en',
+                      'homonyms_uz', 'homonyms_en', 'paronyms_uz', 'paronyms_en')
+        aliases = [(alias, 'en' if key.endswith('_en') else 'uz')
+                   for key in alias_keys for alias in _relation_list(entry.get(key))]
+        labels = [(uz, 'uz'), (en, 'en')] + aliases
+        hits = [(label, lang) for label, lang in labels if needle in _normalize_term(label)]
+        if not hits:
+            continue
+        exact = [(label, lang) for label, lang in hits if _normalize_term(label) == needle]
+        chosen = (exact or hits)[0]
+        matched_alias = chosen[0] if chosen[0] not in (uz, en) else None
+        language = 'en' if direction == 'en-uz' else 'uz' if direction == 'uz-en' else chosen[1]
+        def rel(key):
+            return _relation_list(entry.get(key))
+        result = {
+            'word': uz, 'english': en, 'matched_alias': matched_alias,
+            'search_lang': language,
+            'part_of_speech_uz': entry.get('part_of_speech_uz') or '',
+            'definition_uz': entry.get('definition_uz') or '',
+            'etymology_uz': entry.get('etymology_uz') or '',
+            'example_uz': entry.get('example_uz') or '',
+            'field_uz': _relation_list(entry.get('field_uz')),
+            'synonyms_uz': uz_aliases,
+            'part_of_speech_en': entry.get('part_of_speech_en') or '',
+            'pronunciation': entry.get('pronunciation') or '',
+            'definition_en': entry.get('definition_en') or '',
+            'etymology_en': entry.get('etymology_en') or '',
+            'example_en': entry.get('example_en') or '',
+            'field_en': _relation_list(entry.get('field_en')),
+            'synonyms_en': en_aliases,
+            'антонимы': rel('antonyms_en' if language == 'en' else 'antonyms_uz'),
+            'гиперонимы': rel('hyperonyms_en' if language == 'en' else 'hyperonyms_uz'),
+            'гипонимы': rel('hyponyms_en' if language == 'en' else 'hyponyms_uz'),
+            'xolonim': rel('holonyms_en' if language == 'en' else 'holonyms_uz'),
+            'meronim': rel('meronyms_en' if language == 'en' else 'meronyms_uz'),
+            'omonim': rel('homonyms_en' if language == 'en' else 'homonyms_uz'),
+            'paronim': rel('paronyms_en' if language == 'en' else 'paronyms_uz'),
+            'image_url': entry.get('image_url') or '',
+        }
+        rank = (0 if exact else 1 if any(_normalize_term(label).startswith(needle) for label, _ in hits) else 2)
+        matches.append((rank, _normalize_term(uz), result))
+    matches.sort(key=lambda row: (row[0], row[1]))
+    return [row[2] for row in matches[:100]]
+
+
 @app.route('/search')
 def search():
     query = request.args.get('q', '').strip()
     direction = request.args.get('direction')
     if direction in ('uz-en', 'en-uz'):
         session['dictionary_direction'] = direction
-    direction = session.get('dictionary_direction')
+    direction = session.get('dictionary_direction', 'uz-en')
     results = []
-
     if query:
         try:
-            # Search headwords, English translations and semantic aliases.
-            # Unicode normalization also makes o‘ / o' apostrophes equivalent.
-            normalized_query = _normalize_term(query)
-            words = []
-            matching_aliases = {}
-            relation_names = ('synonyms', 'antonyms', 'hyperonyms', 'hyponyms',
-                              'holonyms', 'meronyms', 'homonyms', 'paronyms')
-            # Eager-load relation collections in batches instead of one query per word.
-            search_query = Word.query.options(
-                *(selectinload(getattr(Word, name)) for name in
-                  ('synonyms', 'antonyms', 'hyperonyms', 'hyponyms',
-                   'holonyms', 'meronyms', 'homonyms', 'paronyms', 'usage_areas'))
-            ).filter(~Word.word.startswith('_category_placeholder_'))
-            for candidate in search_query.all():
-                labels = [candidate.word, candidate.translation_en or '']
-                aliases = []
-                for relation_name in relation_names:
-                    for relation in getattr(candidate, relation_name):
-                        aliases.extend(part.strip() for part in
-                                       (relation.related_word or '').split(';') if part.strip())
-                matching_alias = next((alias for alias in aliases
-                                       if normalized_query in _normalize_term(alias)), None)
-                matches = (any(normalized_query in _normalize_term(label) for label in labels)
-                           or any(normalized_query in _normalize_term(area.area)
-                                  for area in candidate.usage_areas)
-                           or matching_alias is not None)
-                if matches:
-                    words.append(candidate)
-                    if matching_alias:
-                        matching_aliases[candidate.id] = matching_alias
-
-            # Сортировка: точное совпадение слова, начало слова, затем остальные
-            def sort_words(word_obj):
-                word_lower = _normalize_term(word_obj.word)
-                query_lower = normalized_query
-                if _normalize_term(matching_aliases.get(word_obj.id, '')) == query_lower:
-                    return (-1, word_lower)
-                if word_lower == query_lower:
-                    return (0, word_lower)
-                elif word_lower.startswith(query_lower):
-                    return (1, word_lower)
-                else:
-                    return (2, word_lower)
-
-            words = sorted(words, key=sort_words)
-
-            for word in words:
-                # Category is a dynamic relationship in this application.
-                first_category = word.categories.first()
-                results.append({
-                    'word': word.word,
-                    'matched_alias': matching_aliases.get(word.id),
-                    'search_lang': ('en' if direction == 'en-uz' else 'uz') if direction in ('uz-en', 'en-uz') else ('en' if _related_term_language(query) == 'en' else 'uz'),
-                    'part_of_speech_uz': first_category.category if first_category else '',
-                    'definition_uz': word.definition,
-                    'etymology_uz': word.etymology,
-                    'example_uz': word.example_uz,
-                    'field_uz': [area.area for area in word.usage_areas],
-                    'synonyms_uz': [syn.related_word for syn in word.synonyms],
-                    'english': word.translation_en,
-                    'part_of_speech_en': word.part_of_speech_en,
-                    'pronunciation': word.pronunciation,
-                    'definition_en': word.definition_en,
-                    'etymology_en': word.etymology_en,
-                    'example_en': word.example_en,
-                    'field_en': [area.area for area in word.usage_areas],
-                    'synonyms_en': [syn.related_word for syn in word.synonyms],
-                    'антонимы': [ant.related_word for ant in word.antonyms],
-                    'гиперонимы': [hyp.related_word for hyp in word.hyperonyms],
-                    'гипонимы': [hypo.related_word for hypo in word.hyponyms],
-                    'xolonim': [hol.related_word for hol in word.holonyms],
-                    'meronim': [mer.related_word for mer in word.meronyms],
-                    'omonim': [hom.related_word for hom in word.homonyms],
-                    'paronim': [par.related_word for par in word.paronyms],
-                    'image_url': word.image_url
-                })
-
-        except Exception as e:
-            print(f"Search error: {e}")
-            results = []
-
+            results = _search_json(query, direction)
+        except (OSError, ValueError, json.JSONDecodeError):
+            app.logger.exception('Cannot load dictionary JSON; search fallback unavailable')
+            # Avoid returning a misleading empty-result message when the dataset is missing.
+            return render_template('500.html'), 500
     return render_template('search.html', query=query, results=results)
+
 
 def _normalize_term(value):
     """Normalize URL/database term text without changing the stored spelling."""
@@ -440,14 +447,17 @@ def about():
 
 @app.route('/api/search')
 def api_search():
-    query = request.args.get('q', '').lower().strip()
+    query = _normalize_term(request.args.get('q', ''))
     suggestions = []
-    if query and len(query) >= 2:
+    if len(query) >= 2:
         try:
-            words = Word.query.filter(Word.word.ilike(f'%{query}%')).limit(10).all()
-            suggestions = [word.word for word in words]
-        except Exception:
-            suggestions = []
+            direction = session.get('dictionary_direction', 'uz-en')
+            for item in _search_json(query, direction)[:10]:
+                label = item['english'] if direction == 'en-uz' else item['word']
+                if label and label not in suggestions:
+                    suggestions.append(label)
+        except (OSError, ValueError):
+            app.logger.exception('Autocomplete dictionary load failed')
     return jsonify(suggestions)
 
 
