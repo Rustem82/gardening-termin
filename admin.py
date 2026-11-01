@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app, session
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -9,6 +9,7 @@ from datetime import datetime
 import os
 import uuid
 import re
+import secrets
 from data_sync import load_blob_map, find_image_url
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
@@ -213,6 +214,73 @@ def logout():
     logout_user()
     flash('Tizimdan chiqdingiz', 'info')
     return redirect(url_for('admin.login'))
+
+
+# ========== БЕЗОПАСНАЯ СМЕНА ЛОГИНА И ПАРОЛЯ ==========
+@admin_bp.route('/account', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def account_settings():
+    # Token lives only in the authenticated user's session, never in GitHub.
+    token = session.get('admin_account_csrf')
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session['admin_account_csrf'] = token
+
+    if request.method == 'POST':
+        submitted = request.form.get('csrf_token', '')
+        if not submitted or not secrets.compare_digest(submitted, token):
+            flash('Security check failed. Reload the page and try again.', 'danger')
+            return redirect(url_for('admin.account_settings'))
+
+        current_password = request.form.get('current_password', '')
+        new_username = request.form.get('new_username', '').strip()
+        new_password = request.form.get('new_password', '')
+        confirm_password = request.form.get('confirm_password', '')
+
+        if not check_password_hash(current_user.password_hash, current_password):
+            flash('Current password is incorrect.', 'danger')
+            return redirect(url_for('admin.account_settings'))
+        if not re.fullmatch(r'[A-Za-z0-9_.-]{3,64}', new_username):
+            flash('Username must be 3–64 characters: letters, digits, _, . or -.', 'danger')
+            return redirect(url_for('admin.account_settings'))
+        if not new_password and new_username == current_user.username:
+            flash('No changes requested.', 'info')
+            return redirect(url_for('admin.account_settings'))
+        if new_password:
+            if len(new_password) < 12 or len(new_password) > 128:
+                flash('New password must contain 12–128 characters.', 'danger')
+                return redirect(url_for('admin.account_settings'))
+            if new_password != confirm_password:
+                flash('New passwords do not match.', 'danger')
+                return redirect(url_for('admin.account_settings'))
+            if check_password_hash(current_user.password_hash, new_password):
+                flash('New password must differ from the current password.', 'danger')
+                return redirect(url_for('admin.account_settings'))
+
+        other = User.query.filter_by(username=new_username).first()
+        if other and other.id != current_user.id:
+            flash('This username is already in use.', 'danger')
+            return redirect(url_for('admin.account_settings'))
+
+        try:
+            current_user.username = new_username
+            if new_password:
+                current_user.password_hash = generate_password_hash(new_password)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            current_app.logger.exception('Admin account update failed')
+            flash('Could not save account changes. Check database configuration.', 'danger')
+            return redirect(url_for('admin.account_settings'))
+
+        session.pop('admin_account_csrf', None)
+        logout_user()
+        session.clear()
+        flash('Account updated. Please sign in again.', 'success')
+        return redirect(url_for('admin.login'))
+
+    return render_template('admin/account.html', csrf_token=token)
 
 
 # ========== DASHBOARD ==========
