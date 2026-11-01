@@ -6,6 +6,7 @@ from models import db, Word, WordCategory, WordSynonym, WordAntonym, WordHyperon
 from admin import admin_bp, create_admin
 from data_sync import ensure_word_columns, sync_dataset
 from datetime import datetime
+from sqlalchemy.orm import selectinload
 import os
 
 app = Flask(__name__)
@@ -117,8 +118,13 @@ def search():
             matching_aliases = {}
             relation_names = ('synonyms', 'antonyms', 'hyperonyms', 'hyponyms',
                               'holonyms', 'meronyms', 'homonyms', 'paronyms')
-            for candidate in Word.query.filter(
-                    ~Word.word.startswith('_category_placeholder_')).all():
+            # Eager-load relation collections in batches instead of one query per word.
+            search_query = Word.query.options(
+                *(selectinload(getattr(Word, name)) for name in
+                  ('synonyms', 'antonyms', 'hyperonyms', 'hyponyms',
+                   'holonyms', 'meronyms', 'homonyms', 'paronyms', 'usage_areas'))
+            ).filter(~Word.word.startswith('_category_placeholder_'))
+            for candidate in search_query.all():
                 labels = [candidate.word, candidate.translation_en or '']
                 aliases = []
                 for relation_name in relation_names:
@@ -152,11 +158,13 @@ def search():
             words = sorted(words, key=sort_words)
 
             for word in words:
+                # Category is a dynamic relationship in this application.
+                first_category = word.categories.first()
                 results.append({
                     'word': word.word,
                     'matched_alias': matching_aliases.get(word.id),
                     'search_lang': ('en' if direction == 'en-uz' else 'uz') if direction in ('uz-en', 'en-uz') else ('en' if _related_term_language(query) == 'en' else 'uz'),
-                    'part_of_speech_uz': word.categories[0].category if word.categories.count() > 0 else '',
+                    'part_of_speech_uz': first_category.category if first_category else '',
                     'definition_uz': word.definition,
                     'etymology_uz': word.etymology,
                     'example_uz': word.example_uz,
